@@ -1,17 +1,17 @@
 <template>
   <div id="app">
-    <img alt="Vue logo" src="./assets/logo.png">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
+    <h1>税金シミュレーター</h1>
+    <Tax />
   </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import Tax from './components/Tax.vue'
 
 export default {
   name: 'app',
   components: {
-    HelloWorld
+    Tax
   }
 }
 </script>
@@ -24,5 +24,14 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 60px;
+}
+table {
+    margin: auto;
+}
+th {
+  text-align: left;
+}
+td {
+  text-align: right;
 }
 </style>
