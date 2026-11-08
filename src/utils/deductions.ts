@@ -133,3 +133,40 @@ export const dependentDeduction = (dependents: Dependents): PersonalDeduction =>
       addDeductions(total, timesPeople(DEPENDENT_DEDUCTION[category], headcount(dependents[category]))),
     NO_DEDUCTION,
   );
+
+export type SelfDisability = "none" | "regular" | "special";
+
+export type FamilyDisabilities = { regular: number; special: number; cohabitingSpecial: number };
+
+export const NO_FAMILY_DISABILITIES: FamilyDisabilities = { regular: 0, special: 0, cohabitingSpecial: 0 };
+
+const DISABILITY_DEDUCTION: Record<keyof FamilyDisabilities, PersonalDeduction> = {
+  regular: { incomeTaxYen: 270000, residentTaxYen: 260000 },
+  special: { incomeTaxYen: 400000, residentTaxYen: 300000 },
+  cohabitingSpecial: { incomeTaxYen: 750000, residentTaxYen: 530000 },
+};
+
+const FAMILY_DISABILITY_CATEGORIES = ["regular", "special", "cohabitingSpecial"] as const;
+
+const selfDisabilityDeduction = (self: SelfDisability): PersonalDeduction =>
+  self === "none" ? NO_DEDUCTION : DISABILITY_DEDUCTION[self];
+
+export const disabilityDeduction = (self: SelfDisability, family: FamilyDisabilities): PersonalDeduction =>
+  FAMILY_DISABILITY_CATEGORIES.reduce(
+    (total, category) => addDeductions(total, timesPeople(DISABILITY_DEDUCTION[category], headcount(family[category]))),
+    selfDisabilityDeduction(self),
+  );
+
+export type SingleStatus = "none" | "widow" | "singleParent";
+
+const SINGLE_STATUS_INCOME_LIMIT_YEN = 5000000;
+
+const SINGLE_STATUS_DEDUCTION: Record<Exclude<SingleStatus, "none">, PersonalDeduction> = {
+  widow: { incomeTaxYen: 270000, residentTaxYen: 260000 },
+  singleParent: { incomeTaxYen: 350000, residentTaxYen: 300000 },
+};
+
+export const singleStatusDeduction = (status: SingleStatus, ownTotalIncomeYen: number): PersonalDeduction =>
+  status === "none" || !(ownTotalIncomeYen <= SINGLE_STATUS_INCOME_LIMIT_YEN)
+    ? NO_DEDUCTION
+    : SINGLE_STATUS_DEDUCTION[status];
