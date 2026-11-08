@@ -67,6 +67,9 @@ const segment = (value: number, index: number, total: number, startDeg: number):
 
 export const donutSegments = (values: readonly number[]): DonutSegment[] => {
   const total = values.reduce((acc, value) => acc + value, 0);
+  if (!(total > 0)) {
+    return [];
+  }
   const startAngles = values.reduce<number[]>(
     (angles, value) => [...angles, (value / total) * FULL_CIRCLE_DEG + angles[angles.length - 1]],
     [START_ANGLE_DEG],

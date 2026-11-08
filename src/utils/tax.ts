@@ -148,11 +148,27 @@ const JP_NUMBER_UNITS = [
   "無量大数",
 ];
 
+const groupDigits = (integerDigits: string): string[] => {
+  const groupCount = Math.ceil(integerDigits.length / DIGITS_PER_JP_UNIT);
+  const leadingLength = integerDigits.length - (groupCount - 1) * DIGITS_PER_JP_UNIT;
+  return Array.from({ length: groupCount }, (_, index) =>
+    index === 0
+      ? integerDigits.slice(0, leadingLength)
+      : integerDigits.slice(
+          leadingLength + (index - 1) * DIGITS_PER_JP_UNIT,
+          leadingLength + index * DIGITS_PER_JP_UNIT,
+        ),
+  );
+};
+
 export const toJpNumber = (value: number | string): string => {
-  const digits = String(value);
-  let unitIndex = Math.floor((digits.length - 1) / DIGITS_PER_JP_UNIT);
-  return digits.replace(/(\d)(?=(\d\d\d\d)+(?!\d))/g, (digit) => {
-    unitIndex -= 1;
-    return `${digit}${JP_NUMBER_UNITS[unitIndex]}`;
-  });
+  const text = String(value);
+  const match = /^(-?)(\d+)(.*)$/.exec(text);
+  if (!match) {
+    return text;
+  }
+  const [, sign, integerDigits, rest] = match;
+  const groups = groupDigits(integerDigits);
+  const withUnits = groups.map((group, index) => `${group}${JP_NUMBER_UNITS[groups.length - 2 - index] ?? ""}`);
+  return `${sign}${withUnits.join("")}${rest}`;
 };

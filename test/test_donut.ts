@@ -18,9 +18,7 @@ describe("donutSegments", () => {
     expect(donutSegments([94, 6]).map((s) => s.showLabel)).toEqual([true, true]);
   });
 
-  test("all-zero values produce NaN geometry without throwing", () => {
-    const segments = donutSegments([0, 0, 0]);
-    expect(segments).toHaveLength(3);
-    segments.forEach((s) => expect(s.showLabel).toBe(false));
+  test.each([[[0, 0, 0]], [[]], [[NaN, 1]]])("%j renders no segments", (values) => {
+    expect(donutSegments(values)).toEqual([]);
   });
 });
