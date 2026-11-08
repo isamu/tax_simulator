@@ -4,12 +4,20 @@ import NumberField from "./NumberField.vue";
 import InfoTip from "./InfoTip.vue";
 import { FIELD_HELP } from "./fieldHelp";
 import FormSection from "./FormSection.vue";
+import RadioGroup from "./RadioGroup.vue";
 import StackedBar from "./StackedBar.vue";
 import LedgerTable from "./LedgerTable.vue";
 import BudgetTable from "./BudgetTable.vue";
 import { BUDGET_ITEMS, type Household, simulateTax } from "../utils/simulate";
 import { type Dependents, type FamilyDisabilities, type SelfDisability, type SingleStatus } from "../utils/deductions";
 import { decodeShareState, encodeShareState } from "../utils/shareState";
+import {
+  DEFAULT_HOUSING_LOAN,
+  type HomeKind,
+  type HomePerformance,
+  type MoveInPeriod,
+  housingLoanCapYen,
+} from "../utils/housingLoan";
 import { ledgerSections } from "../utils/ledger";
 import { formatPercent, formatYen } from "../utils/format";
 
@@ -47,6 +55,42 @@ const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, NumberInput>
 });
 const singleStatus = ref<SingleStatus>(initial.household.singleStatus);
 
+const initialLoan = initial.household.housingLoan ?? DEFAULT_HOUSING_LOAN;
+const hasHousingLoan = ref(initial.household.housingLoan !== null);
+const loanBalanceInput = ref<NumberInput>(initialLoan.balanceYen);
+const homeKind = ref<HomeKind>(initialLoan.kind);
+const homePerformance = ref<HomePerformance>(initialLoan.performance);
+const moveIn = ref<MoveInPeriod>(initialLoan.moveIn);
+const childRearing = ref(initialLoan.childRearing);
+
+const HOME_KIND_OPTIONS: { value: HomeKind; label: string }[] = [
+  { value: "new", label: "新築" },
+  { value: "used", label: "中古" },
+];
+const HOME_PERFORMANCE_OPTIONS: { value: HomePerformance; label: string }[] = [
+  { value: "certified", label: "長期優良・低炭素" },
+  { value: "zeh", label: "ZEH水準" },
+  { value: "energySaving", label: "省エネ基準" },
+  { value: "other", label: "その他" },
+];
+const MOVE_IN_OPTIONS: { value: MoveInPeriod; label: string }[] = [
+  { value: "r4to5", label: "令和4〜5年" },
+  { value: "r6to7", label: "令和6〜7年" },
+  { value: "r8", label: "令和8年" },
+];
+
+const housingLoan = computed(() =>
+  hasHousingLoan.value
+    ? {
+        balanceYen: Number(loanBalanceInput.value),
+        kind: homeKind.value,
+        performance: homePerformance.value,
+        moveIn: moveIn.value,
+        childRearing: childRearing.value,
+      }
+    : null,
+);
+
 const household = computed<Household>(() => ({
   paysCareInsurance: paysCareInsurance.value,
   nationalInsurance: isNationalInsurance.value,
@@ -64,7 +108,7 @@ const household = computed<Household>(() => ({
     cohabitingSpecial: Number(familyDisabilityInputs.value.cohabitingSpecial),
   },
   singleStatus: singleStatus.value,
-  housingLoan: null,
+  housingLoan: housingLoan.value,
 }));
 const result = computed(() => simulateTax(Number(incomeInput.value), household.value));
 
@@ -104,6 +148,8 @@ const tipIds = {
   selfDisability: useId(),
   familyDisabilities: useId(),
   singleStatus: useId(),
+  housingLoan: useId(),
+  childRearing: useId(),
 };
 
 const selectClass = "w-[9.25rem] border border-rule bg-paper-raised px-2 py-1 focus:border-accent focus:outline-none";
@@ -227,6 +273,63 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           </select>
         </label>
       </FormSection>
+
+      <FormSection title="住宅ローン">
+        <label class="relative flex items-center gap-2 py-1.5 text-sm">
+          <input
+            v-model="hasHousingLoan"
+            type="checkbox"
+            name="loan"
+            :class="checkboxClass"
+            :aria-describedby="tipIds.housingLoan"
+          />
+          <span>住宅ローン控除あり<InfoTip :id="tipIds.housingLoan" :text="FIELD_HELP.housingLoan" /></span>
+        </label>
+        <template v-if="housingLoan">
+          <NumberField
+            v-model="loanBalanceInput"
+            label="年末残高"
+            unit="円"
+            name="loan_balance"
+            :min="0"
+            :tip="FIELD_HELP.loanBalance"
+          />
+          <RadioGroup
+            v-model="homeKind"
+            label="住宅"
+            name="loan_kind"
+            :options="HOME_KIND_OPTIONS"
+            :tip="FIELD_HELP.homeKind"
+          />
+          <RadioGroup
+            v-model="homePerformance"
+            label="省エネ性能"
+            name="loan_perf"
+            :options="HOME_PERFORMANCE_OPTIONS"
+            :tip="FIELD_HELP.homePerformance"
+          />
+          <RadioGroup
+            v-model="moveIn"
+            label="入居した年"
+            name="loan_year"
+            :options="MOVE_IN_OPTIONS"
+            :tip="FIELD_HELP.moveIn"
+          />
+          <label class="relative flex items-center gap-2 py-1.5 text-sm">
+            <input
+              v-model="childRearing"
+              type="checkbox"
+              name="loan_kids"
+              :class="checkboxClass"
+              :aria-describedby="tipIds.childRearing"
+            />
+            <span>子育て・若者夫婦世帯<InfoTip :id="tipIds.childRearing" :text="FIELD_HELP.childRearing" /></span>
+          </label>
+          <p class="py-1 text-xs text-ink-muted">
+            控除の上限は年 {{ formatYen(housingLoanCapYen(housingLoan)) }}円です。
+          </p>
+        </template>
+      </FormSection>
     </form>
 
     <section class="space-y-10" aria-live="polite">
@@ -261,6 +364,8 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         </p>
         <p class="mt-1 text-sm leading-relaxed">
           <span>この額までの寄付なら、自己負担は2,000円で済みます。</span
+          ><span v-if="result.hasHousingLoan"
+            >住宅ローン控除で所得税が0円になる場合は、上限が下がることがあります。</span
           ><span
             >個人事業主の方は<a href="/furusato/" class="text-accent underline underline-offset-2"
               >ふるさと納税の上限額の計算</a
