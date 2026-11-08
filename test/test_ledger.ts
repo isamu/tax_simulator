@@ -37,3 +37,16 @@ test("take-home total is the yearly net income", () =>
 
 test("row labels are unique within each section", () =>
   sections.forEach((s) => expect(new Set(s.rows.map((row) => row.label)).size).toBe(s.rows.length)));
+
+test("National Health Insurance drops employment insurance from both sides", () => {
+  const national = ledgerSections(simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, nationalInsurance: true }));
+  const labels = national.flatMap((s) => s.rows.map((row) => row.label));
+  expect(labels).not.toContain("雇用保険");
+  expect(national.find((s) => s.title === "会社負担（年額）")?.rows.map((row) => row.label)).toEqual(["労災保険"]);
+});
+
+test("employees keep employment insurance on both sides", () => {
+  const employeeRows = (title: string) => section(title)?.rows.map((row) => row.label);
+  expect(employeeRows("社会保険料（年額）")).toContain("雇用保険");
+  expect(employeeRows("会社負担（年額）")).toContain("雇用保険");
+});

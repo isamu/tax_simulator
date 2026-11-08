@@ -160,7 +160,6 @@ const nationalSocialInsurance = (incomeGrossYen: number, household: Household): 
     residentTaxBasicDeduction(salaryIncomeYen),
     household.paysCareInsurance,
   );
-  const unemploymentMonthlyYen = Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYEE_UNEMPLOYMENT_RATE);
   const healthInsuranceYearlyYen = plan.healthYen + plan.elderlySupportYen;
   const monthlyOf = (yearlyYen: number): number => Math.round(yearlyYen / MONTHS_PER_YEAR);
   return {
@@ -174,8 +173,9 @@ const nationalSocialInsurance = (incomeGrossYen: number, household: Household): 
     careInsuranceYearlyYen: plan.careYen,
     pensionMonthlyYen: monthlyOf(plan.pensionYen),
     pensionYearlyYen: plan.pensionYen,
-    unemploymentMonthlyYen,
-    unemploymentYearlyYen: unemploymentMonthlyYen * MONTHS_PER_YEAR,
+    // People on National Health Insurance are mostly not employees, so no employment insurance is assumed.
+    unemploymentMonthlyYen: 0,
+    unemploymentYearlyYen: 0,
   };
 };
 
@@ -254,14 +254,14 @@ const sharedEmployerCosts = (insurance: SocialInsurance): SharedEmployerCosts =>
   childContributionYen: yearlyOf(insurance.pensionStandardFeeYen * CHILD_CONTRIBUTION_RATE),
 });
 
-// Under National Health Insurance the employer still pays employment and workers' compensation insurance.
+// Under National Health Insurance only workers' compensation insurance is left.
 export const employerCosts = (
   incomeGrossYen: number,
   insurance: SocialInsurance,
   isNationalInsurance: boolean,
 ): EmployerCosts => {
   const monthlyWageYen = incomeGrossYen / MONTHS_PER_YEAR;
-  const unemploymentYen = yearlyOf(monthlyWageYen * EMPLOYER_UNEMPLOYMENT_RATE);
+  const unemploymentYen = isNationalInsurance ? 0 : yearlyOf(monthlyWageYen * EMPLOYER_UNEMPLOYMENT_RATE);
   const workersCompYen = yearlyOf(monthlyWageYen * WORKERS_COMP_RATE);
   const sharedYen = isNationalInsurance ? NO_SHARED_EMPLOYER_COSTS : sharedEmployerCosts(insurance);
   return {
