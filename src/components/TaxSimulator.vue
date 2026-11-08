@@ -7,16 +7,9 @@ import FormSection from "./FormSection.vue";
 import StackedBar from "./StackedBar.vue";
 import LedgerTable from "./LedgerTable.vue";
 import BudgetTable from "./BudgetTable.vue";
-import { BUDGET_ITEMS, DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../utils/simulate";
-import {
-  type Dependents,
-  type FamilyDisabilities,
-  NO_DEPENDENTS,
-  NO_FAMILY_DISABILITIES,
-  type SelfDisability,
-  type SingleStatus,
-} from "../utils/deductions";
-import { incomeFromHash } from "../utils/hash";
+import { BUDGET_ITEMS, type Household, simulateTax } from "../utils/simulate";
+import { type Dependents, type FamilyDisabilities, type SelfDisability, type SingleStatus } from "../utils/deductions";
+import { decodeShareState, encodeShareState } from "../utils/shareState";
 import { ledgerSections } from "../utils/ledger";
 import { formatPercent, formatYen } from "../utils/format";
 
@@ -26,12 +19,14 @@ const INCOME_STEP_YEN = 1000000;
 // v-model on a number input yields "" while the field is empty.
 type NumberInput = number | "";
 
-const incomeInput = ref<NumberInput>(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
-const paysCareInsurance = ref(DEFAULT_HOUSEHOLD.paysCareInsurance);
-const isNationalInsurance = ref(DEFAULT_HOUSEHOLD.nationalInsurance);
-const hasSpouse = ref(false);
-const spouseSalaryInput = ref<NumberInput>(0);
-const spouseIsElderly = ref(false);
+const initial = decodeShareState(location.hash, DEFAULT_INCOME_GROSS_YEN);
+
+const incomeInput = ref<NumberInput>(initial.incomeGrossYen);
+const paysCareInsurance = ref(initial.household.paysCareInsurance);
+const isNationalInsurance = ref(initial.household.nationalInsurance);
+const hasSpouse = ref(initial.household.spouse !== null);
+const spouseSalaryInput = ref<NumberInput>(initial.household.spouse?.salaryYen ?? 0);
+const spouseIsElderly = ref(initial.household.spouse?.isElderly ?? false);
 
 const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
   { key: "general", label: "一般" },
@@ -39,16 +34,18 @@ const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
   { key: "elderly", label: "老人（70歳以上）" },
   { key: "cohabitingParents", label: "同居老親等" },
 ];
-const dependentInputs = ref<Record<keyof Dependents, NumberInput>>({ ...NO_DEPENDENTS });
+const dependentInputs = ref<Record<keyof Dependents, NumberInput>>({ ...initial.household.dependents });
 
 const FAMILY_DISABILITY_FIELDS: { key: keyof FamilyDisabilities; label: string }[] = [
   { key: "regular", label: "障害者" },
   { key: "special", label: "特別障害者" },
   { key: "cohabitingSpecial", label: "同居特別障害者" },
 ];
-const selfDisability = ref<SelfDisability>("none");
-const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, NumberInput>>({ ...NO_FAMILY_DISABILITIES });
-const singleStatus = ref<SingleStatus>("none");
+const selfDisability = ref<SelfDisability>(initial.household.selfDisability);
+const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, NumberInput>>({
+  ...initial.household.familyDisabilities,
+});
+const singleStatus = ref<SingleStatus>(initial.household.singleStatus);
 
 const household = computed<Household>(() => ({
   paysCareInsurance: paysCareInsurance.value,
@@ -70,10 +67,12 @@ const household = computed<Household>(() => ({
 }));
 const result = computed(() => simulateTax(Number(incomeInput.value), household.value));
 
+// replaceState keeps every keystroke out of the browser history.
 watch(
-  incomeInput,
-  (income) => {
-    location.hash = String(income);
+  [incomeInput, household],
+  ([income, currentHousehold]) => {
+    const hash = encodeShareState({ incomeGrossYen: Number(income), household: currentHousehold });
+    history.replaceState(null, "", `#${hash}`);
   },
   { immediate: true },
 );
