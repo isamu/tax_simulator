@@ -6,13 +6,21 @@ export type LedgerSection = { title: string; rows: LedgerLine[]; total?: LedgerL
 
 const insuranceSection = (r: TaxSimulation): LedgerSection => ({
   title: "社会保険料（年額）",
-  rows: [
-    { label: "健康保険", valueYen: r.healthInsuranceYearlyYen },
-    { label: "子ども・子育て支援金", valueYen: r.childSupportYearlyYen },
-    { label: "介護保険", valueYen: r.careInsuranceYearlyYen, note: "40〜64歳" },
-    { label: "厚生年金", valueYen: r.pensionYearlyYen },
-    { label: "雇用保険", valueYen: r.unemploymentYearlyYen },
-  ],
+  rows: r.isNationalInsurance
+    ? [
+        { label: "国民健康保険", valueYen: r.healthInsuranceYearlyYen, note: "基礎分＋後期高齢者支援金分" },
+        { label: "子ども・子育て支援金", valueYen: r.childSupportYearlyYen, note: "国保" },
+        { label: "介護保険", valueYen: r.careInsuranceYearlyYen, note: "40〜64歳" },
+        { label: "国民年金", valueYen: r.pensionYearlyYen },
+        { label: "雇用保険", valueYen: r.unemploymentYearlyYen },
+      ]
+    : [
+        { label: "健康保険", valueYen: r.healthInsuranceYearlyYen },
+        { label: "子ども・子育て支援金", valueYen: r.childSupportYearlyYen },
+        { label: "介護保険", valueYen: r.careInsuranceYearlyYen, note: "40〜64歳" },
+        { label: "厚生年金", valueYen: r.pensionYearlyYen },
+        { label: "雇用保険", valueYen: r.unemploymentYearlyYen },
+      ],
   total: { label: "合計", valueYen: r.insuranceSumYen },
 });
 
@@ -42,21 +50,27 @@ const deductionSection = (r: TaxSimulation): LedgerSection => ({
 const takeHomeSection = (r: TaxSimulation): LedgerSection => ({
   title: "手取り",
   rows: [
-    { label: "標準報酬月額", valueYen: r.standardMonthlyFeeYen },
+    ...(r.isNationalInsurance ? [] : [{ label: "標準報酬月額", valueYen: r.standardMonthlyFeeYen }]),
     { label: "手取り（月額）", valueYen: r.netIncomeMonthlyYen, note: "12等分" },
   ],
   total: { label: "手取り（年額）", valueYen: r.netIncomeYearlyYen },
 });
 
+const sharedEmployerRows = (r: TaxSimulation): LedgerLine[] => [
+  { label: "健康保険", valueYen: r.employer.healthInsuranceYen, note: "本人と同額" },
+  { label: "子ども・子育て支援金", valueYen: r.employer.childSupportYen, note: "本人と同額" },
+  { label: "介護保険", valueYen: r.employer.careInsuranceYen, note: "本人と同額" },
+  { label: "厚生年金", valueYen: r.employer.pensionYen, note: "本人と同額" },
+];
+
 const employerSection = (r: TaxSimulation): LedgerSection => ({
   title: "会社負担（年額）",
   rows: [
-    { label: "健康保険", valueYen: r.employer.healthInsuranceYen, note: "本人と同額" },
-    { label: "子ども・子育て支援金", valueYen: r.employer.childSupportYen, note: "本人と同額" },
-    { label: "介護保険", valueYen: r.employer.careInsuranceYen, note: "本人と同額" },
-    { label: "厚生年金", valueYen: r.employer.pensionYen, note: "本人と同額" },
+    ...(r.isNationalInsurance ? [] : sharedEmployerRows(r)),
     { label: "雇用保険", valueYen: r.employer.unemploymentYen, note: "0.85%" },
-    { label: "子ども・子育て拠出金", valueYen: r.employer.childContributionYen, note: "会社のみ" },
+    ...(r.isNationalInsurance
+      ? []
+      : [{ label: "子ども・子育て拠出金", valueYen: r.employer.childContributionYen, note: "会社のみ" }]),
     { label: "労災保険", valueYen: r.employer.workersCompYen, note: "会社のみ" },
   ],
   total: { label: "合計", valueYen: r.employer.totalYen },

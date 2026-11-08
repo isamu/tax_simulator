@@ -147,6 +147,24 @@ describe("simulateTax worked examples", () => {
     expect(r.localTaxYen).toBe(94_000);
   });
 
+  test("4,000,000 yen on National Health Insurance and the National Pension", () => {
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, nationalInsurance: true });
+    // basic 222,583 + elderly support 82,840
+    expect(r.healthInsuranceYearlyYen).toBe(305_423);
+    expect(r.childSupportYearlyYen).toBe(8_164);
+    expect(r.pensionYearlyYen).toBe(215_040);
+    expect(r.unemploymentYearlyYen).toBe(20_004);
+    expect(r.insuranceSumYen).toBe(548_631);
+    // 2,760,000 - 548,631 - 1,040,000 = 1,171,369, floored
+    expect(r.incomeTaxYen).toBe(58_550);
+    // (2,760,000 - 548,631 - 430,000) floored = 1,781,000 x 10%
+    expect(r.localTaxYen).toBe(178_100);
+    // the employer pays only employment (33,996) and workers' compensation (12,000) insurance
+    expect(r.companyInsuranceYen).toBe(45_996);
+    expect(r.employer.pensionYen).toBe(0);
+    expect(r.employer.childContributionYen).toBe(0);
+  });
+
   test("salary below the minimum deduction leaves no salary income", () => {
     const r = simulateTax(500_000);
     expect(r.salaryDeductionYen).toBe(500_000);
@@ -169,7 +187,11 @@ describe("simulateTax properties", () => {
 
   test(`totals are consistent (seed ${seed})`, () => {
     incomes.forEach((income) => {
-      const r = simulateTax(income, { ...DEFAULT_HOUSEHOLD, paysCareInsurance: random() < 0.5 });
+      const r = simulateTax(income, {
+        ...DEFAULT_HOUSEHOLD,
+        paysCareInsurance: random() < 0.5,
+        nationalInsurance: random() < 0.5,
+      });
       expect(r.insuranceSumYen).toBe(
         r.healthInsuranceYearlyYen +
           r.childSupportYearlyYen +
@@ -180,7 +202,7 @@ describe("simulateTax properties", () => {
       expect(r.taxSumYen).toBe(r.incomeTaxYen + r.reconstructionTaxYen + r.localTaxYen);
       expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen + r.companyInsuranceYen);
       expect(r.totalLaborCostYen).toBe(income + r.companyInsuranceYen);
-      expect(r.employer.pensionYen).toBe(r.pensionYearlyYen);
+      expect(r.employer.pensionYen).toBe(r.isNationalInsurance ? 0 : r.pensionYearlyYen);
       expect(r.netIncomeYearlyYen).toBe(income - r.insuranceSumYen - r.taxSumYen);
       expect(r.taxableIncomeYen).toBeGreaterThanOrEqual(0);
       expect(r.salaryDeductionYen).toBeLessThanOrEqual(income);
