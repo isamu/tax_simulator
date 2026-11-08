@@ -1,6 +1,13 @@
 import { DEFAULT_HOUSEHOLD, type Household } from "./simulate";
 import type { Dependents, FamilyDisabilities, SelfDisability, SingleStatus, Spouse } from "./deductions";
 import { incomeFromHash } from "./hash";
+import {
+  DEFAULT_HOUSING_LOAN,
+  type HomeKind,
+  type HomePerformance,
+  type HousingLoan,
+  type MoveInPeriod,
+} from "./housingLoan";
 
 export type ShareState = { incomeGrossYen: number; household: Household };
 
@@ -22,8 +29,24 @@ const FLAG_ON = "1";
 const isSelfDisability = (value: string | null): value is SelfDisability =>
   value === "none" || value === "regular" || value === "special";
 
+const isHomeKind = (value: string | null): value is HomeKind => value === "new" || value === "used";
+
+const isHomePerformance = (value: string | null): value is HomePerformance =>
+  value === "certified" || value === "zeh" || value === "energySaving" || value === "other";
+
+const isMoveInPeriod = (value: string | null): value is MoveInPeriod =>
+  value === "r4to5" || value === "r6to7" || value === "r8";
+
 const isSingleStatus = (value: string | null): value is SingleStatus =>
   value === "none" || value === "widow" || value === "singleParent";
+
+const setHousingLoan = (params: URLSearchParams, loan: HousingLoan): void => {
+  params.set("loan", String(loan.balanceYen));
+  if (loan.kind !== DEFAULT_HOUSING_LOAN.kind) params.set("loan_kind", loan.kind);
+  if (loan.performance !== DEFAULT_HOUSING_LOAN.performance) params.set("loan_perf", loan.performance);
+  if (loan.moveIn !== DEFAULT_HOUSING_LOAN.moveIn) params.set("loan_year", loan.moveIn);
+  if (loan.childRearing) params.set("loan_kids", FLAG_ON);
+};
 
 // Only values that differ from the defaults are written, to keep shared URLs short.
 export const encodeShareState = ({ incomeGrossYen, household }: ShareState): string => {
@@ -40,6 +63,7 @@ export const encodeShareState = ({ incomeGrossYen, household }: ShareState): str
     if (household.familyDisabilities[field] > 0) params.set(key, String(household.familyDisabilities[field]));
   });
   if (household.singleStatus !== "none") params.set("single", household.singleStatus);
+  if (household.housingLoan) setHousingLoan(params, household.housingLoan);
   return params.toString();
 };
 
@@ -54,6 +78,21 @@ const count = (value: string | null): number => Math.floor(nonNegative(value) ??
 const spouseFrom = (params: URLSearchParams): Spouse | null => {
   const salaryYen = nonNegative(params.get("spouse"));
   return salaryYen === undefined ? null : { salaryYen, isElderly: params.get("spouse70") === FLAG_ON };
+};
+
+const housingLoanFrom = (params: URLSearchParams): HousingLoan | null => {
+  const balanceYen = nonNegative(params.get("loan"));
+  if (balanceYen === undefined) return null;
+  const kind = params.get("loan_kind");
+  const performance = params.get("loan_perf");
+  const moveIn = params.get("loan_year");
+  return {
+    balanceYen,
+    kind: isHomeKind(kind) ? kind : DEFAULT_HOUSING_LOAN.kind,
+    performance: isHomePerformance(performance) ? performance : DEFAULT_HOUSING_LOAN.performance,
+    moveIn: isMoveInPeriod(moveIn) ? moveIn : DEFAULT_HOUSING_LOAN.moveIn,
+    childRearing: params.get("loan_kids") === FLAG_ON,
+  };
 };
 
 const householdFrom = (params: URLSearchParams): Household => {
@@ -76,7 +115,7 @@ const householdFrom = (params: URLSearchParams): Household => {
       cohabitingSpecial: count(params.get("dis_cohab")),
     },
     singleStatus: isSingleStatus(single) ? single : DEFAULT_HOUSEHOLD.singleStatus,
-    housingLoan: DEFAULT_HOUSEHOLD.housingLoan,
+    housingLoan: housingLoanFrom(params),
   };
 };
 

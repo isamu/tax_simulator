@@ -2,6 +2,13 @@ import { describe, expect, test } from "vitest";
 import { type ShareState, decodeShareState, encodeShareState } from "../src/utils/shareState";
 import { DEFAULT_HOUSEHOLD, type Household } from "../src/utils/simulate";
 import type { SelfDisability, SingleStatus } from "../src/utils/deductions";
+import {
+  DEFAULT_HOUSING_LOAN,
+  type HomeKind,
+  type HomePerformance,
+  type HousingLoan,
+  type MoveInPeriod,
+} from "../src/utils/housingLoan";
 
 const DEFAULT_INCOME = 4_000_000;
 
@@ -15,6 +22,22 @@ const seededRandom = (seed: number): (() => number) => {
 
 const SELF: SelfDisability[] = ["none", "regular", "special"];
 const SINGLE: SingleStatus[] = ["none", "widow", "singleParent"];
+const KINDS: HomeKind[] = ["new", "used"];
+const PERFORMANCES: HomePerformance[] = ["certified", "zeh", "energySaving", "other"];
+const MOVE_INS: MoveInPeriod[] = ["r4to5", "r6to7", "r8"];
+
+const pickFrom = <T>(random: () => number, values: T[]): T => values[Math.floor(random() * values.length)];
+
+const randomLoan = (random: () => number): HousingLoan | null =>
+  random() < 0.5
+    ? null
+    : {
+        balanceYen: Math.floor(random() * 60_000_000),
+        kind: pickFrom(random, KINDS),
+        performance: pickFrom(random, PERFORMANCES),
+        moveIn: pickFrom(random, MOVE_INS),
+        childRearing: random() < 0.5,
+      };
 
 const randomState = (random: () => number): ShareState => {
   const small = () => Math.floor(random() * 4);
@@ -26,7 +49,7 @@ const randomState = (random: () => number): ShareState => {
     selfDisability: SELF[Math.floor(random() * SELF.length)],
     familyDisabilities: { regular: small(), special: small(), cohabitingSpecial: small() },
     singleStatus: SINGLE[Math.floor(random() * SINGLE.length)],
-    housingLoan: null,
+    housingLoan: randomLoan(random),
   };
   return { incomeGrossYen: Math.floor(random() * 50_000_000), household };
 };
@@ -95,4 +118,41 @@ describe("decodeShareState", () => {
 
   test("fractional counts are rounded down", () =>
     expect(decodeShareState("#dep_general=2.9", DEFAULT_INCOME).household.dependents.general).toBe(2));
+});
+
+describe("housing loan in the share state", () => {
+  const withLoan = (housingLoan: Household["housingLoan"]): ShareState => ({
+    incomeGrossYen: 4_000_000,
+    household: { ...DEFAULT_HOUSEHOLD, housingLoan },
+  });
+
+  test("defaults write only the balance", () =>
+    expect(encodeShareState(withLoan({ ...DEFAULT_HOUSING_LOAN, balanceYen: 30_000_000 }))).toBe(
+      "income=4000000&loan=30000000",
+    ));
+
+  test("every non-default choice is written and read back", () => {
+    const state = withLoan({
+      balanceYen: 0,
+      kind: "used",
+      performance: "zeh",
+      moveIn: "r4to5",
+      childRearing: true,
+    });
+    const hash = encodeShareState(state);
+    expect(hash).toBe("income=4000000&loan=0&loan_kind=used&loan_perf=zeh&loan_year=r4to5&loan_kids=1");
+    expect(decodeShareState(`#${hash}`, DEFAULT_INCOME)).toEqual(state);
+  });
+
+  test.each([
+    ["#income=4000000&loan_kind=used", null],
+    ["#income=4000000&loan=abc", null],
+    ["#income=4000000&loan=-1", null],
+    [
+      "#income=4000000&loan=100&loan_kind=x&loan_perf=y&loan_year=r99&loan_kids=yes",
+      { ...DEFAULT_HOUSING_LOAN, balanceYen: 100 },
+    ],
+  ])("%s -> %o", (hash, housingLoan) =>
+    expect(decodeShareState(hash, DEFAULT_INCOME).household.housingLoan).toEqual(housingLoan),
+  );
 });
