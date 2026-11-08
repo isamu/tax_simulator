@@ -67,6 +67,13 @@ const adjustmentDeduction = (residentTaxableYen: number, gapYen: number, totalIn
   return Math.max((gapYen - (residentTaxableYen - ADJUST_THRESHOLD_YEN)) * ADJUST_RATE, ADJUST_MIN_YEN);
 };
 
+const limitFrom = (shotokuwariYen: number, coefficient: number): number =>
+  shotokuwariYen > 0 ? Math.floor(shotokuwariYen * coefficient + SELF_BURDEN_YEN) : 0;
+
+// For salary earners whose income-tax taxable income and resident tax income levy are already known.
+export const furusatoLimitYen = (taxableIncomeYen: number, shotokuwariYen: number): number =>
+  limitFrom(shotokuwariYen, coefficientFor(rateFor(taxableIncomeYen)));
+
 type IncomeAndDeductions = Pick<FurusatoResult, "totalIncomeYen" | "incomeTaxBasicYen" | "residentBasicYen"> & {
   commonDeductionsYen: number;
 };
@@ -94,7 +101,7 @@ export const computeFurusatoLimit = (input: FurusatoInput): FurusatoResult => {
     input.shotokuwariOverrideYen ?? floorTo(residentTaxableYen * RESIDENT_BASE_RATIO - adjustYen, SHOTOKUWARI_UNIT_YEN);
   const rate = rateFor(input.taxableOverrideYen ?? residentTaxableYen - gapYen);
   const coefficient = coefficientFor(rate);
-  const limitYen = shotokuwariYen > 0 ? Math.floor(shotokuwariYen * coefficient + SELF_BURDEN_YEN) : 0;
+  const limitYen = limitFrom(shotokuwariYen, coefficient);
   return {
     totalIncomeYen,
     incomeTaxBasicYen,
