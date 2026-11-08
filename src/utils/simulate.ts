@@ -1,9 +1,12 @@
 import { incomeTax, salaryIncomeDeduction, standardMonthlyFee } from "./tax";
 
 const MONTHS_PER_YEAR = 12;
-// Rate depends on age and prefecture; this is a representative value.
+// Rates are the employer + employee total; the employee pays half.
+// The health rate depends on age and prefecture; this is a representative value.
 const HEALTH_INSURANCE_RATE = 0.099;
-const PENSION_RATE = 0.0915;
+const PENSION_RATE = 0.183;
+const EMPLOYEE_SHARE = 0.5;
+const PENSION_FEE_FLOOR_YEN = 88000;
 const PENSION_FEE_CAP_YEN = 620000;
 const UNEMPLOYMENT_INSURANCE_RATE = 0.003;
 const DEPENDENT_DEDUCTION_YEN = 0;
@@ -57,8 +60,9 @@ export type TaxSimulation = SocialInsurance &
 
 export const socialInsurance = (incomeGrossYen: number): SocialInsurance => {
   const standardMonthlyFeeYen = standardMonthlyFee(incomeGrossYen / MONTHS_PER_YEAR);
-  const healthInsuranceMonthlyYen = standardMonthlyFeeYen * HEALTH_INSURANCE_RATE;
-  const pensionMonthlyYen = Math.round(Math.min(standardMonthlyFeeYen, PENSION_FEE_CAP_YEN) * PENSION_RATE);
+  const pensionFeeYen = Math.min(Math.max(standardMonthlyFeeYen, PENSION_FEE_FLOOR_YEN), PENSION_FEE_CAP_YEN);
+  const healthInsuranceMonthlyYen = Math.round(standardMonthlyFeeYen * HEALTH_INSURANCE_RATE * EMPLOYEE_SHARE);
+  const pensionMonthlyYen = Math.round(pensionFeeYen * PENSION_RATE * EMPLOYEE_SHARE);
   const unemploymentMonthlyYen = Math.round((incomeGrossYen / MONTHS_PER_YEAR) * UNEMPLOYMENT_INSURANCE_RATE);
   return {
     standardMonthlyFeeYen,
@@ -71,33 +75,25 @@ export const socialInsurance = (incomeGrossYen: number): SocialInsurance => {
   };
 };
 
-// The subtraction order is kept as-is: reordering changes floating-point rounding.
-const incomeAfterInsurance = (incomeGrossYen: number, basicDeductionYen: number, insurance: SocialInsurance): number =>
-  incomeGrossYen -
-  basicDeductionYen -
-  DEPENDENT_DEDUCTION_YEN -
-  insurance.unemploymentMonthlyYen * MONTHS_PER_YEAR -
-  insurance.pensionMonthlyYen * MONTHS_PER_YEAR -
-  insurance.healthInsuranceMonthlyYen * MONTHS_PER_YEAR;
+const yearlyInsuranceYen = (insurance: SocialInsurance): number =>
+  insurance.healthInsuranceYearlyYen + insurance.pensionYearlyYen + insurance.unemploymentYearlyYen;
 
-// The salary deduction is applied to the standard monthly fee, not to the yearly income, as the original site does.
+const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, basicDeductionYen: number): number =>
+  Math.max(salaryIncomeYen - insuranceYen - basicDeductionYen - DEPENDENT_DEDUCTION_YEN, 0);
+
 export const taxes = (incomeGrossYen: number, insurance: SocialInsurance): Taxes => {
-  const salaryDeductionYen = salaryIncomeDeduction(insurance.standardMonthlyFeeYen);
-  const taxableIncomeYen = Math.max(
-    incomeAfterInsurance(incomeGrossYen, BASIC_DEDUCTION_YEN, insurance) - salaryDeductionYen,
-    0,
-  );
+  const salaryDeductionYen = salaryIncomeDeduction(incomeGrossYen);
+  const salaryIncomeYen = incomeGrossYen - salaryDeductionYen;
+  const insuranceYen = yearlyInsuranceYen(insurance);
+  const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, BASIC_DEDUCTION_YEN);
   const incomeTaxYen = Math.round(incomeTax(taxableIncomeYen));
-  const localIncomeYen = Math.max(
-    Math.round(incomeAfterInsurance(incomeGrossYen, LOCAL_BASIC_DEDUCTION_YEN, insurance)) - salaryDeductionYen,
-    0,
-  );
+  const localTaxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, LOCAL_BASIC_DEDUCTION_YEN);
   return {
     salaryDeductionYen,
     taxableIncomeYen,
     incomeTaxYen,
     reconstructionTaxYen: Math.round(incomeTaxYen * RECONSTRUCTION_TAX_RATE),
-    localTaxYen: Math.round(localIncomeYen * LOCAL_TAX_RATE),
+    localTaxYen: Math.round(localTaxableIncomeYen * LOCAL_TAX_RATE),
   };
 };
 
@@ -107,17 +103,9 @@ export const budgetBreakdown = (incomeTaxYen: number): number[] =>
 export const simulateTax = (incomeGrossYen: number): TaxSimulation => {
   const insurance = socialInsurance(incomeGrossYen);
   const tax = taxes(incomeGrossYen, insurance);
-  const netIncomeYearlyYen = Math.round(
-    incomeGrossYen -
-      insurance.unemploymentMonthlyYen * MONTHS_PER_YEAR -
-      insurance.pensionMonthlyYen * MONTHS_PER_YEAR -
-      insurance.healthInsuranceMonthlyYen * MONTHS_PER_YEAR -
-      tax.incomeTaxYen -
-      tax.reconstructionTaxYen -
-      tax.localTaxYen,
-  );
-  const insuranceSumYen =
-    insurance.healthInsuranceYearlyYen + insurance.pensionYearlyYen + insurance.unemploymentYearlyYen;
+  const insuranceSumYen = yearlyInsuranceYen(insurance);
+  const taxSumYen = tax.incomeTaxYen + tax.reconstructionTaxYen + tax.localTaxYen;
+  const netIncomeYearlyYen = incomeGrossYen - insuranceSumYen - taxSumYen;
   return {
     ...insurance,
     ...tax,
@@ -128,7 +116,7 @@ export const simulateTax = (incomeGrossYen: number): TaxSimulation => {
     insuranceSumYen,
     companyInsuranceYen: insuranceSumYen,
     insuranceTotalWithCompanyYen: insuranceSumYen + insuranceSumYen,
-    taxSumYen: tax.incomeTaxYen + tax.reconstructionTaxYen + tax.localTaxYen,
+    taxSumYen,
     budgetsYen: budgetBreakdown(tax.incomeTaxYen),
   };
 };
