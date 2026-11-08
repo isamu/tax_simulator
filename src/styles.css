@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+/* Colour tokens live here because light/dark values must switch in one place; components use them via utilities. */
+:root {
+  color-scheme: light;
+  --paper: #f7f5f0;
+  --paper-raised: #fdfcf9;
+  --ink: #1d1c1a;
+  --ink-muted: #5d5a53;
+  --rule: #d8d4c9;
+  --rule-strong: #1d1c1a;
+  --accent: #1f5ea8;
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --paper: #1c1b19;
+    --paper-raised: #242320;
+    --ink: #eeece6;
+    --ink-muted: #a9a59b;
+    --rule: #3a3833;
+    --rule-strong: #eeece6;
+    --accent: #7fb0ee;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-accent: var(--accent);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+}

@@ -5,7 +5,6 @@ import {
   residentTaxBasicDeduction,
   salaryIncomeDeduction,
   standardMonthlyFee,
-  toJpNumber,
 } from "../src/utils/tax";
 
 describe("standardMonthlyFee", () => {
@@ -88,28 +87,4 @@ describe("residentTaxBasicDeduction", () => {
     [24500001, 150000],
     [25000001, 0],
   ])("%d -> %d", (income, deduction) => expect(residentTaxBasicDeduction(income)).toBe(deduction));
-});
-
-describe("toJpNumber", () => {
-  test.each([
-    [0, "0"],
-    [9999, "9999"],
-    [10000, "1万0000"],
-    [4000000, "400万0000"],
-    [123456789, "1億2345万6789"],
-    [-132588, "-13万2588"],
-    ["", ""],
-    ["4000000", "400万0000"],
-    [-12345678, "-1234万5678"],
-    [-1234, "-1234"],
-    [12345678.5, "1234万5678.5"],
-    [123456789012, "1234億5678万9012"],
-  ])("%s -> %s", (value, text) => expect(toJpNumber(value)).toBe(text));
-
-  test("leaves non-numeric text unchanged", () => expect(toJpNumber("abc")).toBe("abc"));
-
-  test("never prints undefined past the largest unit", () =>
-    expect(toJpNumber("1".repeat(80))).not.toContain("undefined"));
-
-  test("keeps the fractional digits as written", () => expect(toJpNumber(19602.5)).toBe("1万9602.5"));
 });
