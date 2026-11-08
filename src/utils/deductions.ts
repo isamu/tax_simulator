@@ -98,3 +98,38 @@ export const spouseDeduction = (ownTotalIncomeYen: number, spouse: Spouse | null
   if (spouseIncomeYen <= SPOUSE_SPECIAL_INCOME_LIMIT_YEN) return spouseSpecialDeductionFor(spouseIncomeYen, tier);
   return NO_DEDUCTION;
 };
+
+const DEPENDENT_CATEGORIES = ["general", "specific", "elderly", "cohabitingParents"] as const;
+
+type DependentCategory = (typeof DEPENDENT_CATEGORIES)[number];
+
+export type Dependents = Record<DependentCategory, number>;
+
+export const NO_DEPENDENTS: Dependents = { general: 0, specific: 0, elderly: 0, cohabitingParents: 0 };
+
+// Per dependent; each dependent is assumed to have total income of 620,000 yen or less.
+const DEPENDENT_DEDUCTION: Record<DependentCategory, PersonalDeduction> = {
+  general: { incomeTaxYen: 380000, residentTaxYen: 330000 },
+  specific: { incomeTaxYen: 630000, residentTaxYen: 450000 },
+  elderly: { incomeTaxYen: 480000, residentTaxYen: 380000 },
+  cohabitingParents: { incomeTaxYen: 580000, residentTaxYen: 450000 },
+};
+
+const headcount = (count: number): number => (Number.isFinite(count) ? Math.max(Math.floor(count), 0) : 0);
+
+export const addDeductions = (a: PersonalDeduction, b: PersonalDeduction): PersonalDeduction => ({
+  incomeTaxYen: a.incomeTaxYen + b.incomeTaxYen,
+  residentTaxYen: a.residentTaxYen + b.residentTaxYen,
+});
+
+const timesPeople = (deduction: PersonalDeduction, people: number): PersonalDeduction => ({
+  incomeTaxYen: deduction.incomeTaxYen * people,
+  residentTaxYen: deduction.residentTaxYen * people,
+});
+
+export const dependentDeduction = (dependents: Dependents): PersonalDeduction =>
+  DEPENDENT_CATEGORIES.reduce(
+    (total, category) =>
+      addDeductions(total, timesPeople(DEPENDENT_DEDUCTION[category], headcount(dependents[category]))),
+    NO_DEDUCTION,
+  );

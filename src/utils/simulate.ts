@@ -5,7 +5,15 @@ import {
   salaryIncomeDeduction,
   standardMonthlyFee,
 } from "./tax";
-import { type PersonalDeduction, type Spouse, spouseDeduction } from "./deductions";
+import {
+  type Dependents,
+  NO_DEPENDENTS,
+  type PersonalDeduction,
+  type Spouse,
+  addDeductions,
+  dependentDeduction,
+  spouseDeduction,
+} from "./deductions";
 
 const MONTHS_PER_YEAR = 12;
 // Rates are the employer + employee total; the employee pays half.
@@ -22,7 +30,6 @@ const PENSION_FEE_FLOOR_YEN = 88000;
 const PENSION_FEE_CAP_YEN = 650000;
 const EMPLOYEE_UNEMPLOYMENT_RATE = 0.005;
 const EMPLOYER_UNEMPLOYMENT_RATE = 0.0085;
-const DEPENDENT_DEDUCTION_YEN = 0;
 const RECONSTRUCTION_TAX_RATE = 0.021;
 const LOCAL_TAX_RATE = 0.1;
 const TAXABLE_INCOME_UNIT_YEN = 1000;
@@ -42,9 +49,9 @@ export const BUDGET_ITEMS: readonly BudgetItem[] = [
 
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);
 
-export type Household = { ageYears: number; spouse: Spouse | null };
+export type Household = { ageYears: number; spouse: Spouse | null; dependents: Dependents };
 
-export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30, spouse: null };
+export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30, spouse: null, dependents: NO_DEPENDENTS };
 
 export const paysCareInsurance = (ageYears: number): boolean =>
   ageYears >= CARE_INSURANCE_MIN_AGE && ageYears < CARE_INSURANCE_END_AGE;
@@ -67,6 +74,7 @@ export type Taxes = {
   salaryDeductionYen: number;
   basicDeductionYen: number;
   spouseDeduction: PersonalDeduction;
+  dependentDeduction: PersonalDeduction;
   taxableIncomeYen: number;
   incomeTaxYen: number;
   reconstructionTaxYen: number;
@@ -75,7 +83,6 @@ export type Taxes = {
 
 export type TaxSimulation = SocialInsurance &
   Taxes & {
-    dependentDeductionYen: number;
     netIncomeYearlyYen: number;
     netIncomeMonthlyYen: number;
     insuranceSumYen: number;
@@ -126,7 +133,7 @@ const employerInsuranceYen = (incomeGrossYen: number, insurance: SocialInsurance
   Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYER_UNEMPLOYMENT_RATE) * MONTHS_PER_YEAR;
 
 const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, personalDeductionsYen: number): number => {
-  const incomeYen = Math.max(salaryIncomeYen - insuranceYen - personalDeductionsYen - DEPENDENT_DEDUCTION_YEN, 0);
+  const incomeYen = Math.max(salaryIncomeYen - insuranceYen - personalDeductionsYen, 0);
   return Math.floor(incomeYen / TAXABLE_INCOME_UNIT_YEN) * TAXABLE_INCOME_UNIT_YEN;
 };
 
@@ -136,14 +143,17 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, househ
   const insuranceYen = yearlyInsuranceYen(insurance);
   const basicDeductionYen = incomeTaxBasicDeduction(salaryIncomeYen);
   const spouse = spouseDeduction(salaryIncomeYen, household.spouse);
-  const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen + spouse.incomeTaxYen);
+  const dependents = dependentDeduction(household.dependents);
+  const family = addDeductions(spouse, dependents);
+  const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen + family.incomeTaxYen);
   const incomeTaxYen = Math.round(incomeTax(taxableIncomeYen));
-  const residentDeductionsYen = residentTaxBasicDeduction(salaryIncomeYen) + spouse.residentTaxYen;
+  const residentDeductionsYen = residentTaxBasicDeduction(salaryIncomeYen) + family.residentTaxYen;
   const localTaxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, residentDeductionsYen);
   return {
     salaryDeductionYen,
     basicDeductionYen,
     spouseDeduction: spouse,
+    dependentDeduction: dependents,
     taxableIncomeYen,
     incomeTaxYen,
     reconstructionTaxYen: Math.round(incomeTaxYen * RECONSTRUCTION_TAX_RATE),
@@ -164,7 +174,6 @@ export const simulateTax = (incomeGrossYen: number, household: Household = DEFAU
   return {
     ...insurance,
     ...tax,
-    dependentDeductionYen: DEPENDENT_DEDUCTION_YEN,
     netIncomeYearlyYen,
     netIncomeMonthlyYen: Math.round(netIncomeYearlyYen / MONTHS_PER_YEAR),
     insuranceSumYen,

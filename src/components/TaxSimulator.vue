@@ -4,6 +4,7 @@ import DonutChart from "./DonutChart.vue";
 import BreakdownTable, { type BreakdownRow } from "./BreakdownTable.vue";
 import { BUDGET_ITEMS, DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../utils/simulate";
 import { toJpNumber } from "../utils/tax";
+import { type Dependents, NO_DEPENDENTS } from "../utils/deductions";
 import { incomeFromHash } from "../utils/hash";
 
 const DEFAULT_INCOME_GROSS_YEN = 4000000;
@@ -15,9 +16,23 @@ const hasSpouse = ref(false);
 const spouseSalaryInput = ref<number | "">(0);
 const spouseIsElderly = ref(false);
 
+const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
+  { key: "general", label: "一般（16〜18歳・23〜69歳）" },
+  { key: "specific", label: "特定（19〜22歳）" },
+  { key: "elderly", label: "老人（70歳以上）" },
+  { key: "cohabitingParents", label: "同居老親等（70歳以上）" },
+];
+const dependentInputs = ref<Record<keyof Dependents, number | "">>({ ...NO_DEPENDENTS });
+
 const household = computed<Household>(() => ({
   ageYears: Number(ageInput.value),
   spouse: hasSpouse.value ? { salaryYen: Number(spouseSalaryInput.value), isElderly: spouseIsElderly.value } : null,
+  dependents: {
+    general: Number(dependentInputs.value.general),
+    specific: Number(dependentInputs.value.specific),
+    elderly: Number(dependentInputs.value.elderly),
+    cohabitingParents: Number(dependentInputs.value.cohabitingParents),
+  },
 }));
 const result = computed(() => simulateTax(Number(incomeInput.value), household.value));
 
@@ -60,7 +75,7 @@ const detailRows = computed<BreakdownRow[]>(() => {
     { label: "復興特別所得税", valueYen: r.reconstructionTaxYen, showSymbol: true },
     { label: "住民税", valueYen: r.localTaxYen, showSymbol: true },
     { group: "控除", label: "配偶者（特別）控除", valueYen: r.spouseDeduction.incomeTaxYen, showSymbol: true },
-    { label: "扶養控除", valueYen: r.dependentDeductionYen, showSymbol: true },
+    { label: "扶養控除", valueYen: r.dependentDeduction.incomeTaxYen, showSymbol: true },
     { label: "基礎控除", valueYen: r.basicDeductionYen, showSymbol: true },
     { label: "給与控除", valueYen: r.salaryDeductionYen, showSymbol: true },
     { group: "所得", label: "控除後所得", valueYen: r.taxableIncomeYen, showSymbol: true },
@@ -81,6 +96,12 @@ const detailRows = computed<BreakdownRow[]>(() => {
       <input v-model="spouseSalaryInput" type="number" min="0" placeholder="spouse_salary" />
       <label><input v-model="spouseIsElderly" type="checkbox" />配偶者が70歳以上</label>
     </template>
+    <br />
+    扶養親族:
+    <label v-for="field in DEPENDENT_FIELDS" :key="field.key" class="dependent">
+      {{ field.label }}
+      <input v-model="dependentInputs[field.key]" type="number" min="0" :placeholder="field.key" />人
+    </label>
     <br />
 
     <hr />
@@ -141,6 +162,12 @@ input {
 }
 input.age {
   width: 160px;
+}
+.dependent input {
+  width: 80px;
+  height: 40px;
+  font-size: 24px;
+  margin: 8px;
 }
 input[type="checkbox"] {
   width: auto;

@@ -95,6 +95,17 @@ describe("simulateTax worked examples", () => {
     expect(r.localTaxYen).toBe(140_000);
   });
 
+  test("4,000,000 yen with one general and one specific dependent", () => {
+    const dependents = { general: 1, specific: 1, elderly: 0, cohabitingParents: 0 };
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, dependents });
+    expect(r.dependentDeduction).toEqual({ incomeTaxYen: 1_010_000, residentTaxYen: 780_000 });
+    // 2,760,000 - 599,976 - 1,040,000 - 1,010,000 = 110,024, floored
+    expect(r.taxableIncomeYen).toBe(110_000);
+    expect(r.incomeTaxYen).toBe(5_500);
+    // (2,760,000 - 599,976 - 430,000 - 780,000) floored = 950,000 x 10%
+    expect(r.localTaxYen).toBe(95_000);
+  });
+
   test("salary below the minimum deduction leaves no salary income", () => {
     const r = simulateTax(500_000);
     expect(r.salaryDeductionYen).toBe(500_000);
