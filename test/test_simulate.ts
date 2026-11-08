@@ -153,14 +153,15 @@ describe("simulateTax worked examples", () => {
     expect(r.healthInsuranceYearlyYen).toBe(305_423);
     expect(r.childSupportYearlyYen).toBe(8_164);
     expect(r.pensionYearlyYen).toBe(215_040);
-    expect(r.unemploymentYearlyYen).toBe(20_004);
-    expect(r.insuranceSumYen).toBe(548_631);
-    // 2,760,000 - 548,631 - 1,040,000 = 1,171,369, floored
-    expect(r.incomeTaxYen).toBe(58_550);
-    // (2,760,000 - 548,631 - 430,000) floored = 1,781,000 x 10%
-    expect(r.localTaxYen).toBe(178_100);
-    // the employer pays only employment (33,996) and workers' compensation (12,000) insurance
-    expect(r.companyInsuranceYen).toBe(45_996);
+    expect(r.unemploymentYearlyYen).toBe(0);
+    expect(r.insuranceSumYen).toBe(528_627);
+    // 2,760,000 - 528,627 - 1,040,000 = 1,191,373, floored to 1,191,000 x 5%
+    expect(r.incomeTaxYen).toBe(59_550);
+    // (2,760,000 - 528,627 - 430,000) floored = 1,801,000 x 10%
+    expect(r.localTaxYen).toBe(180_100);
+    // only workers' compensation insurance (12,000) is left for the employer
+    expect(r.companyInsuranceYen).toBe(12_000);
+    expect(r.employer.unemploymentYen).toBe(0);
     expect(r.employer.pensionYen).toBe(0);
     expect(r.employer.childContributionYen).toBe(0);
   });
@@ -203,6 +204,7 @@ describe("simulateTax properties", () => {
       expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen + r.companyInsuranceYen);
       expect(r.totalLaborCostYen).toBe(income + r.companyInsuranceYen);
       expect(r.employer.pensionYen).toBe(r.isNationalInsurance ? 0 : r.pensionYearlyYen);
+      if (r.isNationalInsurance) expect(r.unemploymentYearlyYen + r.employer.unemploymentYen).toBe(0);
       expect(r.netIncomeYearlyYen).toBe(income - r.insuranceSumYen - r.taxSumYen);
       expect(r.taxableIncomeYen).toBeGreaterThanOrEqual(0);
       expect(r.salaryDeductionYen).toBeLessThanOrEqual(income);
