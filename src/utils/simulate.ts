@@ -11,6 +11,10 @@ const MONTHS_PER_YEAR = 12;
 // The health rate depends on prefecture; this is the Kyokai Kenpo national average for FY2026.
 const HEALTH_INSURANCE_RATE = 0.099;
 const CHILD_SUPPORT_RATE = 0.0023;
+// Only Category 2 insured persons (40-64) pay care insurance through the employer.
+const CARE_INSURANCE_RATE = 0.0162;
+const CARE_INSURANCE_MIN_AGE = 40;
+const CARE_INSURANCE_END_AGE = 65;
 const PENSION_RATE = 0.183;
 const EMPLOYEE_SHARE = 0.5;
 const PENSION_FEE_FLOOR_YEN = 88000;
@@ -37,12 +41,21 @@ export const BUDGET_ITEMS: readonly BudgetItem[] = [
 
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);
 
+export type Household = { ageYears: number };
+
+export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30 };
+
+export const paysCareInsurance = (ageYears: number): boolean =>
+  ageYears >= CARE_INSURANCE_MIN_AGE && ageYears < CARE_INSURANCE_END_AGE;
+
 export type SocialInsurance = {
   standardMonthlyFeeYen: number;
   healthInsuranceMonthlyYen: number;
   healthInsuranceYearlyYen: number;
   childSupportMonthlyYen: number;
   childSupportYearlyYen: number;
+  careInsuranceMonthlyYen: number;
+  careInsuranceYearlyYen: number;
   pensionMonthlyYen: number;
   pensionYearlyYen: number;
   unemploymentMonthlyYen: number;
@@ -72,11 +85,14 @@ export type TaxSimulation = SocialInsurance &
 
 const employeeShare = (feeYen: number, rate: number): number => Math.round(feeYen * rate * EMPLOYEE_SHARE);
 
-export const socialInsurance = (incomeGrossYen: number): SocialInsurance => {
+export const socialInsurance = (incomeGrossYen: number, household: Household): SocialInsurance => {
   const standardMonthlyFeeYen = standardMonthlyFee(incomeGrossYen / MONTHS_PER_YEAR);
   const pensionFeeYen = Math.min(Math.max(standardMonthlyFeeYen, PENSION_FEE_FLOOR_YEN), PENSION_FEE_CAP_YEN);
   const healthInsuranceMonthlyYen = employeeShare(standardMonthlyFeeYen, HEALTH_INSURANCE_RATE);
   const childSupportMonthlyYen = employeeShare(standardMonthlyFeeYen, CHILD_SUPPORT_RATE);
+  const careInsuranceMonthlyYen = paysCareInsurance(household.ageYears)
+    ? employeeShare(standardMonthlyFeeYen, CARE_INSURANCE_RATE)
+    : 0;
   const pensionMonthlyYen = employeeShare(pensionFeeYen, PENSION_RATE);
   const unemploymentMonthlyYen = Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYEE_UNEMPLOYMENT_RATE);
   return {
@@ -85,6 +101,8 @@ export const socialInsurance = (incomeGrossYen: number): SocialInsurance => {
     healthInsuranceYearlyYen: healthInsuranceMonthlyYen * MONTHS_PER_YEAR,
     childSupportMonthlyYen,
     childSupportYearlyYen: childSupportMonthlyYen * MONTHS_PER_YEAR,
+    careInsuranceMonthlyYen,
+    careInsuranceYearlyYen: careInsuranceMonthlyYen * MONTHS_PER_YEAR,
     pensionMonthlyYen,
     pensionYearlyYen: pensionMonthlyYen * MONTHS_PER_YEAR,
     unemploymentMonthlyYen,
@@ -93,7 +111,10 @@ export const socialInsurance = (incomeGrossYen: number): SocialInsurance => {
 };
 
 const sharedInsuranceYen = (insurance: SocialInsurance): number =>
-  insurance.healthInsuranceYearlyYen + insurance.childSupportYearlyYen + insurance.pensionYearlyYen;
+  insurance.healthInsuranceYearlyYen +
+  insurance.childSupportYearlyYen +
+  insurance.careInsuranceYearlyYen +
+  insurance.pensionYearlyYen;
 
 const yearlyInsuranceYen = (insurance: SocialInsurance): number =>
   sharedInsuranceYen(insurance) + insurance.unemploymentYearlyYen;
@@ -132,8 +153,8 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance): Taxes
 export const budgetBreakdown = (incomeTaxYen: number): number[] =>
   BUDGET_ITEMS.map(({ amountOkuYen }) => Math.round((amountOkuYen / BUDGET_TOTAL_OKU_YEN) * incomeTaxYen));
 
-export const simulateTax = (incomeGrossYen: number): TaxSimulation => {
-  const insurance = socialInsurance(incomeGrossYen);
+export const simulateTax = (incomeGrossYen: number, household: Household = DEFAULT_HOUSEHOLD): TaxSimulation => {
+  const insurance = socialInsurance(incomeGrossYen, household);
   const tax = taxes(incomeGrossYen, insurance);
   const insuranceSumYen = yearlyInsuranceYen(insurance);
   const companyInsuranceYen = employerInsuranceYen(incomeGrossYen, insurance);

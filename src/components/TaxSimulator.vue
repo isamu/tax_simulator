@@ -2,7 +2,7 @@
 import { computed, ref, watch } from "vue";
 import DonutChart from "./DonutChart.vue";
 import BreakdownTable, { type BreakdownRow } from "./BreakdownTable.vue";
-import { BUDGET_ITEMS, simulateTax } from "../utils/simulate";
+import { BUDGET_ITEMS, DEFAULT_HOUSEHOLD, simulateTax } from "../utils/simulate";
 import { toJpNumber } from "../utils/tax";
 import { incomeFromHash } from "../utils/hash";
 
@@ -10,7 +10,8 @@ const DEFAULT_INCOME_GROSS_YEN = 4000000;
 
 // v-model on a number input yields "" while the field is empty.
 const incomeInput = ref<number | "">(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
-const result = computed(() => simulateTax(Number(incomeInput.value)));
+const ageInput = ref<number | "">(DEFAULT_HOUSEHOLD.ageYears);
+const result = computed(() => simulateTax(Number(incomeInput.value), { ageYears: Number(ageInput.value) }));
 
 watch(
   incomeInput,
@@ -41,6 +42,8 @@ const detailRows = computed<BreakdownRow[]>(() => {
     { label: "健康保険料/年額", valueYen: r.healthInsuranceYearlyYen, showSymbol: true },
     { label: "子ども・子育て支援金/月額", valueYen: r.childSupportMonthlyYen, showSymbol: true },
     { label: "子ども・子育て支援金/年額", valueYen: r.childSupportYearlyYen, showSymbol: true },
+    { label: "介護保険料/月額", valueYen: r.careInsuranceMonthlyYen, showSymbol: true },
+    { label: "介護保険料/年額", valueYen: r.careInsuranceYearlyYen, showSymbol: true },
     { label: "厚生年金/月額", valueYen: r.pensionMonthlyYen, showSymbol: true },
     { label: "厚生年金/年額", valueYen: r.pensionYearlyYen, showSymbol: true },
     { label: "雇用保険/月額", valueYen: r.unemploymentMonthlyYen, showSymbol: true },
@@ -62,6 +65,7 @@ const detailRows = computed<BreakdownRow[]>(() => {
 <template>
   <div class="hello">
     年収: <input v-model="incomeInput" type="number" placeholder="income_gross" /><br />
+    年齢: <input v-model="ageInput" class="age" type="number" min="0" placeholder="age" />歳<br />
 
     <hr />
     <table class="tax_table">
@@ -118,5 +122,8 @@ input {
   border-radius: 8px;
   font-size: 36px;
   margin: 20px;
+}
+input.age {
+  width: 160px;
 }
 </style>
