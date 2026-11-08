@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { ledgerSections } from "../src/utils/ledger";
 import { DEFAULT_HOUSEHOLD, simulateTax } from "../src/utils/simulate";
 
-const result = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 45 });
+const result = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, paysCareInsurance: true });
 const sections = ledgerSections(result);
 const section = (title: string) => sections.find((s) => s.title === title);
 
