@@ -100,10 +100,16 @@ describe("toJpNumber", () => {
     [-132588, "-13万2588"],
     ["", ""],
     ["4000000", "400万0000"],
+    [-12345678, "-1234万5678"],
+    [-1234, "-1234"],
+    [12345678.5, "1234万5678.5"],
+    [123456789012, "1234億5678万9012"],
   ])("%s -> %s", (value, text) => expect(toJpNumber(value)).toBe(text));
 
-  test("counts the minus sign as a digit, as the original did", () =>
-    expect(toJpNumber(-12345678)).toBe("-1234億5678"));
+  test("leaves non-numeric text unchanged", () => expect(toJpNumber("abc")).toBe("abc"));
+
+  test("never prints undefined past the largest unit", () =>
+    expect(toJpNumber("1".repeat(80))).not.toContain("undefined"));
 
   test("keeps the fractional digits as written", () => expect(toJpNumber(19602.5)).toBe("1万9602.5"));
 });
