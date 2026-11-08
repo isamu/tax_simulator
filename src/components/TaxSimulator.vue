@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
-import DonutChart from "./DonutChart.vue";
-import BreakdownTable, { type BreakdownRow } from "./BreakdownTable.vue";
+import NumberField from "./NumberField.vue";
+import FormSection from "./FormSection.vue";
+import StackedBar from "./StackedBar.vue";
+import LedgerTable from "./LedgerTable.vue";
+import BudgetTable from "./BudgetTable.vue";
 import { BUDGET_ITEMS, DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../utils/simulate";
-import { toJpNumber } from "../utils/tax";
 import {
   type Dependents,
   type FamilyDisabilities,
@@ -13,23 +15,27 @@ import {
   type SingleStatus,
 } from "../utils/deductions";
 import { incomeFromHash } from "../utils/hash";
+import { ledgerSections } from "../utils/ledger";
+import { formatYen } from "../utils/format";
 
 const DEFAULT_INCOME_GROSS_YEN = 4000000;
 
 // v-model on a number input yields "" while the field is empty.
-const incomeInput = ref<number | "">(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
-const ageInput = ref<number | "">(DEFAULT_HOUSEHOLD.ageYears);
+type NumberInput = number | "";
+
+const incomeInput = ref<NumberInput>(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
+const ageInput = ref<NumberInput>(DEFAULT_HOUSEHOLD.ageYears);
 const hasSpouse = ref(false);
-const spouseSalaryInput = ref<number | "">(0);
+const spouseSalaryInput = ref<NumberInput>(0);
 const spouseIsElderly = ref(false);
 
 const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
-  { key: "general", label: "一般（16〜18歳・23〜69歳）" },
+  { key: "general", label: "一般（16〜18・23〜69歳）" },
   { key: "specific", label: "特定（19〜22歳）" },
   { key: "elderly", label: "老人（70歳以上）" },
-  { key: "cohabitingParents", label: "同居老親等（70歳以上）" },
+  { key: "cohabitingParents", label: "同居老親等" },
 ];
-const dependentInputs = ref<Record<keyof Dependents, number | "">>({ ...NO_DEPENDENTS });
+const dependentInputs = ref<Record<keyof Dependents, NumberInput>>({ ...NO_DEPENDENTS });
 
 const FAMILY_DISABILITY_FIELDS: { key: keyof FamilyDisabilities; label: string }[] = [
   { key: "regular", label: "障害者" },
@@ -37,7 +43,7 @@ const FAMILY_DISABILITY_FIELDS: { key: keyof FamilyDisabilities; label: string }
   { key: "cohabitingSpecial", label: "同居特別障害者" },
 ];
 const selfDisability = ref<SelfDisability>("none");
-const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, number | "">>({ ...NO_FAMILY_DISABILITIES });
+const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, NumberInput>>({ ...NO_FAMILY_DISABILITIES });
 const singleStatus = ref<SingleStatus>("none");
 
 const household = computed<Household>(() => ({
@@ -67,160 +73,123 @@ watch(
   { immediate: true },
 );
 
-const graphValues = computed(() => [
-  result.value.netIncomeYearlyYen,
-  result.value.insuranceSumYen,
-  result.value.taxSumYen,
+const SHARE_COLORS: Record<string, string> = {
+  net: "bg-series-1",
+  insurance: "bg-series-2",
+  tax: "bg-series-3",
+};
+
+const shareItems = computed(() => [
+  { key: "net", label: "手取り", valueYen: result.value.netIncomeYearlyYen },
+  { key: "insurance", label: "社会保険料", valueYen: result.value.insuranceSumYen },
+  { key: "tax", label: "税金", valueYen: result.value.taxSumYen },
 ]);
 
-const budgetRows = computed<BreakdownRow[]>(() =>
-  BUDGET_ITEMS.map(({ label }, index) => ({
-    label: `(${index + 1})${label}`,
-    valueYen: result.value.budgetsYen[index],
-  })),
-);
+const sections = computed(() => ledgerSections(result.value));
+const budgetLabels = BUDGET_ITEMS.map(({ label }) => label);
 
-const detailRows = computed<BreakdownRow[]>(() => {
-  const r = result.value;
-  return [
-    { label: "標準月額報酬", valueYen: r.standardMonthlyFeeYen },
-    { group: "社会保険料", label: "健康保険料/月額", valueYen: r.healthInsuranceMonthlyYen, showSymbol: true },
-    { label: "健康保険料/年額", valueYen: r.healthInsuranceYearlyYen, showSymbol: true },
-    { label: "子ども・子育て支援金/月額", valueYen: r.childSupportMonthlyYen, showSymbol: true },
-    { label: "子ども・子育て支援金/年額", valueYen: r.childSupportYearlyYen, showSymbol: true },
-    { label: "介護保険料/月額", valueYen: r.careInsuranceMonthlyYen, showSymbol: true },
-    { label: "介護保険料/年額", valueYen: r.careInsuranceYearlyYen, showSymbol: true },
-    { label: "厚生年金/月額", valueYen: r.pensionMonthlyYen, showSymbol: true },
-    { label: "厚生年金/年額", valueYen: r.pensionYearlyYen, showSymbol: true },
-    { label: "雇用保険/月額", valueYen: r.unemploymentMonthlyYen, showSymbol: true },
-    { label: "雇用保険/年額", valueYen: r.unemploymentYearlyYen, showSymbol: true },
-    { group: "税金", label: "所得税", valueYen: r.incomeTaxYen, showSymbol: true },
-    { label: "復興特別所得税", valueYen: r.reconstructionTaxYen, showSymbol: true },
-    { label: "住民税", valueYen: r.localTaxYen, showSymbol: true },
-    { group: "控除", label: "配偶者（特別）控除", valueYen: r.spouseDeduction.incomeTaxYen, showSymbol: true },
-    { label: "扶養控除", valueYen: r.dependentDeduction.incomeTaxYen, showSymbol: true },
-    { label: "障害者控除", valueYen: r.disabilityDeduction.incomeTaxYen, showSymbol: true },
-    { label: "寡婦・ひとり親控除", valueYen: r.singleStatusDeduction.incomeTaxYen, showSymbol: true },
-    { label: "基礎控除", valueYen: r.basicDeductionYen, showSymbol: true },
-    { label: "給与控除", valueYen: r.salaryDeductionYen, showSymbol: true },
-    { group: "所得", label: "控除後所得", valueYen: r.taxableIncomeYen, showSymbol: true },
-    { label: "手取り額/年", valueYen: r.netIncomeYearlyYen, showSymbol: true },
-    { label: "手取り額/月", valueYen: r.netIncomeMonthlyYen, showSymbol: true },
-    { group: "会社負担", label: "会社負担社会保険料", valueYen: r.companyInsuranceYen, showSymbol: true },
-  ];
-});
+const selectClass = "w-[9.25rem] border border-rule bg-paper-raised px-2 py-1 focus:border-accent focus:outline-none";
+const checkboxClass = "size-4 accent-[var(--accent)]";
 </script>
 
 <template>
-  <div class="hello">
-    年収: <input v-model="incomeInput" type="number" placeholder="income_gross" /><br />
-    年齢: <input v-model="ageInput" class="age" type="number" min="0" placeholder="age" />歳<br />
-    <label><input v-model="hasSpouse" type="checkbox" />配偶者あり</label>
-    <template v-if="hasSpouse">
-      配偶者の給与収入:
-      <input v-model="spouseSalaryInput" type="number" min="0" placeholder="spouse_salary" />
-      <label><input v-model="spouseIsElderly" type="checkbox" />配偶者が70歳以上</label>
-    </template>
-    <br />
-    扶養親族:
-    <label v-for="field in DEPENDENT_FIELDS" :key="field.key" class="dependent">
-      {{ field.label }}
-      <input v-model="dependentInputs[field.key]" type="number" min="0" :placeholder="field.key" />人
-    </label>
-    <br />
-    本人の障害:
-    <select v-model="selfDisability" name="selfDisability">
-      <option value="none">なし</option>
-      <option value="regular">障害者</option>
-      <option value="special">特別障害者</option>
-    </select>
-    配偶者・扶養親族のうち:
-    <label v-for="field in FAMILY_DISABILITY_FIELDS" :key="field.key" class="dependent">
-      {{ field.label }}
-      <input
-        v-model="familyDisabilityInputs[field.key]"
-        type="number"
-        min="0"
-        :placeholder="`disability_${field.key}`"
-      />人
-    </label>
-    <br />
-    寡婦・ひとり親:
-    <select v-model="singleStatus" name="singleStatus">
-      <option value="none">該当なし</option>
-      <option value="widow">寡婦</option>
-      <option value="singleParent">ひとり親</option>
-    </select>
-    <br />
+  <div class="grid gap-10 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+    <form class="space-y-6" @submit.prevent>
+      <FormSection title="本人">
+        <NumberField v-model="incomeInput" label="年収（額面）" unit="円" name="income_gross" :min="0" />
+        <NumberField v-model="ageInput" label="年齢" unit="歳" name="age" :min="0" />
+      </FormSection>
 
-    <hr />
-    <table class="tax_table">
-      <tr>
-        <th>年収</th>
-        <td>{{ toJpNumber(incomeInput) }}</td>
-      </tr>
-      <tr>
-        <th class="tax">(2)社会保険合計</th>
-        <td class="tax">{{ toJpNumber(result.insuranceSumYen) }}</td>
-      </tr>
-      <tr>
-        <th class="tax">(3)税金合計</th>
-        <td class="tax">{{ toJpNumber(result.taxSumYen) }}</td>
-      </tr>
-      <tr>
-        <th>(1)手取り額</th>
-        <td>{{ toJpNumber(result.netIncomeYearlyYen) }}</td>
-      </tr>
-    </table>
-    <DonutChart :values="graphValues" />
-    <hr />
-    <h3>
-      社会保険費（健康保険と厚生年金）は、あなたの負担額と同額を会社も支払っています。<br />
-      あなたと会社、合わせて{{ toJpNumber(result.insuranceTotalWithCompanyYen) }}円、毎年支払っています。<br />
-      健康保険{{ toJpNumber(result.healthInsuranceYearlyYen * 2) }}円、厚生年金{{
-        toJpNumber(result.pensionYearlyYen * 2)
-      }}円です。
-    </h3>
-    <hr />
-    <h3>所得税{{ toJpNumber(result.incomeTaxYen) }}円の使いみち</h3>
-    <BreakdownTable :rows="budgetRows" />
-    <DonutChart :values="result.budgetsYen" />
-    <hr />
-    <BreakdownTable :rows="detailRows" />
+      <FormSection title="配偶者">
+        <label class="flex items-center gap-2 py-1.5 text-sm">
+          <input v-model="hasSpouse" type="checkbox" :class="checkboxClass" />配偶者あり
+        </label>
+        <template v-if="hasSpouse">
+          <NumberField v-model="spouseSalaryInput" label="配偶者の給与収入" unit="円" name="spouse_salary" :min="0" />
+          <label class="flex items-center gap-2 py-1.5 text-sm">
+            <input v-model="spouseIsElderly" type="checkbox" :class="checkboxClass" />配偶者が70歳以上
+          </label>
+        </template>
+      </FormSection>
+
+      <FormSection title="扶養親族（16歳以上）">
+        <NumberField
+          v-for="field in DEPENDENT_FIELDS"
+          :key="field.key"
+          v-model="dependentInputs[field.key]"
+          :label="field.label"
+          unit="人"
+          :name="field.key"
+          :min="0"
+        />
+      </FormSection>
+
+      <FormSection title="障害・ひとり親">
+        <label class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+          <span>本人の障害</span>
+          <select v-model="selfDisability" name="selfDisability" :class="selectClass">
+            <option value="none">なし</option>
+            <option value="regular">障害者</option>
+            <option value="special">特別障害者</option>
+          </select>
+        </label>
+        <p class="pt-2 text-xs text-ink-muted">配偶者・扶養親族のうち</p>
+        <NumberField
+          v-for="field in FAMILY_DISABILITY_FIELDS"
+          :key="field.key"
+          v-model="familyDisabilityInputs[field.key]"
+          :label="field.label"
+          unit="人"
+          :name="`disability_${field.key}`"
+          :min="0"
+        />
+        <label class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
+          <span>寡婦・ひとり親</span>
+          <select v-model="singleStatus" name="singleStatus" :class="selectClass">
+            <option value="none">該当なし</option>
+            <option value="widow">寡婦</option>
+            <option value="singleParent">ひとり親</option>
+          </select>
+        </label>
+      </FormSection>
+    </form>
+
+    <section class="space-y-10" aria-live="polite">
+      <div class="border-t border-rule-strong pt-3">
+        <p class="text-xs font-bold tracking-[0.2em] text-ink-muted">手取り（年額）</p>
+        <p class="mt-1 text-4xl font-bold tabular-nums sm:text-5xl">
+          {{ formatYen(result.netIncomeYearlyYen) }}<span class="ml-1 text-lg font-normal">円</span>
+        </p>
+        <p class="mt-1 text-sm text-ink-muted">
+          月あたり {{ formatYen(result.netIncomeMonthlyYen) }}円 ／ 年収 {{ formatYen(Number(incomeInput)) }}円
+        </p>
+        <div class="mt-5">
+          <StackedBar :items="shareItems" :colors="SHARE_COLORS" />
+        </div>
+      </div>
+
+      <div class="grid gap-8 lg:grid-cols-2">
+        <LedgerTable
+          v-for="section in sections"
+          :key="section.title"
+          :title="section.title"
+          :rows="section.rows"
+          :total="section.total"
+        />
+      </div>
+
+      <p class="border-l-2 border-rule-strong pl-3 text-sm leading-relaxed">
+        健康保険・子ども・子育て支援金・介護保険・厚生年金は、あなたと同じ額を会社も負担しています。雇用保険の会社負担は料率が異なります。あなたと会社をあわせると、社会保険料は年
+        {{ formatYen(result.insuranceTotalWithCompanyYen) }}円です。
+      </p>
+
+      <div>
+        <h2 class="border-b border-rule-strong pb-1 text-xs font-bold tracking-[0.2em] text-ink-muted">
+          所得税 {{ formatYen(result.incomeTaxYen) }}円の使いみち
+        </h2>
+        <BudgetTable :labels="budgetLabels" :values-yen="result.budgetsYen" />
+        <p class="mt-2 text-xs text-ink-muted">令和8年度一般会計（補正後）の歳出の割合で按分した目安です。</p>
+      </div>
+    </section>
   </div>
 </template>
-
-<style>
-table .tax {
-  color: #f00;
-  font-size: 36px;
-}
-.tax_table {
-  font-size: 36px;
-}
-.table-symbol {
-  font-weight: bold;
-  font-size: 20px;
-}
-input {
-  width: 480px;
-  height: 60px;
-  border-radius: 8px;
-  font-size: 36px;
-  margin: 20px;
-}
-input.age {
-  width: 160px;
-}
-.dependent input {
-  width: 80px;
-  height: 40px;
-  font-size: 24px;
-  margin: 8px;
-}
-input[type="checkbox"] {
-  width: auto;
-  height: auto;
-  margin: 8px;
-}
-</style>
