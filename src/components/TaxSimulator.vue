@@ -28,6 +28,7 @@ type NumberInput = number | "";
 
 const incomeInput = ref<NumberInput>(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
 const paysCareInsurance = ref(DEFAULT_HOUSEHOLD.paysCareInsurance);
+const isNationalInsurance = ref(DEFAULT_HOUSEHOLD.nationalInsurance);
 const hasSpouse = ref(false);
 const spouseSalaryInput = ref<NumberInput>(0);
 const spouseIsElderly = ref(false);
@@ -51,6 +52,7 @@ const singleStatus = ref<SingleStatus>("none");
 
 const household = computed<Household>(() => ({
   paysCareInsurance: paysCareInsurance.value,
+  nationalInsurance: isNationalInsurance.value,
   spouse: hasSpouse.value ? { salaryYen: Number(spouseSalaryInput.value), isElderly: spouseIsElderly.value } : null,
   dependents: {
     general: Number(dependentInputs.value.general),
@@ -96,6 +98,7 @@ const sections = computed(() => ledgerSections(result.value));
 
 const tipIds = {
   care: useId(),
+  nationalInsurance: useId(),
   hasSpouse: useId(),
   spouseIsElderly: useId(),
   selfDisability: useId(),
@@ -130,6 +133,18 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
             :aria-describedby="tipIds.care"
           />
           <span>40〜64歳<InfoTip :id="tipIds.care" :text="FIELD_HELP.care" /></span>
+        </label>
+        <label class="relative flex items-center gap-2 py-1.5 text-sm">
+          <input
+            v-model="isNationalInsurance"
+            type="checkbox"
+            name="kokuho"
+            :class="checkboxClass"
+            :aria-describedby="tipIds.nationalInsurance"
+          />
+          <span
+            >国民健康保険・国民年金<InfoTip :id="tipIds.nationalInsurance" :text="FIELD_HELP.nationalInsurance"
+          /></span>
         </label>
       </FormSection>
 
@@ -249,9 +264,17 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         />
       </div>
 
-      <p class="border-l-2 border-rule-strong pl-3 text-xs leading-relaxed text-ink-muted">
-        健康保険・子ども・子育て支援金・介護保険・厚生年金は、あなたと同じ額を会社も負担しています。子ども・子育て拠出金と労災保険は会社だけが払う保険料です。労災保険の料率は業種で異なり、ここでは「その他の各種事業」の0.3%で計算しています。
-      </p>
+      <div class="space-y-1 border-l-2 border-rule-strong pl-3 text-xs leading-relaxed text-ink-muted">
+        <p v-if="!result.isNationalInsurance">
+          健康保険・子ども・子育て支援金・介護保険・厚生年金は、あなたと同じ額を会社も負担しています。子ども・子育て拠出金は会社だけが払う保険料です。
+        </p>
+        <p v-else>
+          国民健康保険料は東京23区の共通基準（令和8年度、20区）で、加入者を本人1人として計算しています。中野区・江戸川区は料率が異なり、目黒区は介護分の所得割が異なります。実際の保険料は前年の所得で決まります。
+        </p>
+        <p>
+          労災保険は会社だけが払う保険料で、料率は業種で異なります。ここでは「その他の各種事業」の0.3%で計算しています。
+        </p>
+      </div>
 
       <div>
         <h2 class="border-b border-rule-strong pb-1 text-xs font-bold tracking-[0.2em] text-ink-muted">
