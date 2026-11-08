@@ -1,24 +1,15 @@
-<template>
-  <div id="app">
-    <h1>税金シミュレーター</h1>
-    <Tax />
-  </div>
-</template>
-
-<script>
-import Tax from './components/Tax.vue'
-
-export default {
-  name: 'app',
-  components: {
-    Tax
-  }
-}
+<script setup lang="ts">
+import TaxSimulator from "./components/TaxSimulator.vue";
 </script>
+
+<template>
+  <h1>税金シミュレーター</h1>
+  <TaxSimulator />
+</template>
 
 <style>
 #app {
-  font-family: 'Avenir', Helvetica, Arial, sans-serif;
+  font-family: "Avenir", Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-align: center;
@@ -26,7 +17,7 @@ export default {
   margin-top: 60px;
 }
 table {
-    margin: auto;
+  margin: auto;
 }
 th {
   text-align: left;
