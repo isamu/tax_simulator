@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import NumberField from "./NumberField.vue";
+import InfoTip from "./InfoTip.vue";
+import { FIELD_HELP } from "./fieldHelp";
 import FormSection from "./FormSection.vue";
 import StackedBar from "./StackedBar.vue";
 import LedgerTable from "./LedgerTable.vue";
@@ -30,7 +32,7 @@ const spouseSalaryInput = ref<NumberInput>(0);
 const spouseIsElderly = ref(false);
 
 const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
-  { key: "general", label: "一般（16〜18・23〜69歳）" },
+  { key: "general", label: "一般" },
   { key: "specific", label: "特定（19〜22歳）" },
   { key: "elderly", label: "老人（70歳以上）" },
   { key: "cohabitingParents", label: "同居老親等" },
@@ -88,6 +90,14 @@ const shareItems = computed(() => [
 const sections = computed(() => ledgerSections(result.value));
 const budgetLabels = BUDGET_ITEMS.map(({ label }) => label);
 
+const tipIds = {
+  hasSpouse: useId(),
+  spouseIsElderly: useId(),
+  selfDisability: useId(),
+  familyDisabilities: useId(),
+  singleStatus: useId(),
+};
+
 const selectClass = "w-[9.25rem] border border-rule bg-paper-raised px-2 py-1 focus:border-accent focus:outline-none";
 const checkboxClass = "size-4 accent-[var(--accent)]";
 </script>
@@ -96,23 +106,44 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
   <div class="grid gap-10 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
     <form class="space-y-6" @submit.prevent>
       <FormSection title="本人">
-        <NumberField v-model="incomeInput" label="年収（額面）" unit="円" name="income_gross" :min="0" />
-        <NumberField v-model="ageInput" label="年齢" unit="歳" name="age" :min="0" />
+        <NumberField
+          v-model="incomeInput"
+          label="年収（額面）"
+          unit="円"
+          name="income_gross"
+          :min="0"
+          :tip="FIELD_HELP.incomeGross"
+        />
+        <NumberField v-model="ageInput" label="年齢" unit="歳" name="age" :min="0" :tip="FIELD_HELP.age" />
       </FormSection>
 
       <FormSection title="配偶者">
-        <label class="flex items-center gap-2 py-1.5 text-sm">
-          <input v-model="hasSpouse" type="checkbox" :class="checkboxClass" />配偶者あり
+        <label class="relative flex items-center gap-2 py-1.5 text-sm">
+          <input v-model="hasSpouse" type="checkbox" :class="checkboxClass" :aria-describedby="tipIds.hasSpouse" />
+          <span>配偶者あり<InfoTip :id="tipIds.hasSpouse" :text="FIELD_HELP.hasSpouse" /></span>
         </label>
         <template v-if="hasSpouse">
-          <NumberField v-model="spouseSalaryInput" label="配偶者の給与収入" unit="円" name="spouse_salary" :min="0" />
-          <label class="flex items-center gap-2 py-1.5 text-sm">
-            <input v-model="spouseIsElderly" type="checkbox" :class="checkboxClass" />配偶者が70歳以上
+          <NumberField
+            v-model="spouseSalaryInput"
+            label="配偶者の給与収入"
+            unit="円"
+            name="spouse_salary"
+            :min="0"
+            :tip="FIELD_HELP.spouseSalary"
+          />
+          <label class="relative flex items-center gap-2 py-1.5 text-sm">
+            <input
+              v-model="spouseIsElderly"
+              type="checkbox"
+              :class="checkboxClass"
+              :aria-describedby="tipIds.spouseIsElderly"
+            />
+            <span>配偶者が70歳以上<InfoTip :id="tipIds.spouseIsElderly" :text="FIELD_HELP.spouseIsElderly" /></span>
           </label>
         </template>
       </FormSection>
 
-      <FormSection title="扶養親族（16歳以上）">
+      <FormSection title="扶養親族（16歳以上）" :tip="FIELD_HELP.dependents">
         <NumberField
           v-for="field in DEPENDENT_FIELDS"
           :key="field.key"
@@ -121,19 +152,27 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           unit="人"
           :name="field.key"
           :min="0"
+          :tip="FIELD_HELP[field.key]"
         />
       </FormSection>
 
       <FormSection title="障害・ひとり親">
-        <label class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-          <span>本人の障害</span>
-          <select v-model="selfDisability" name="selfDisability" :class="selectClass">
+        <label class="relative flex items-baseline justify-between gap-3 py-1.5 text-sm">
+          <span>本人の障害<InfoTip :id="tipIds.selfDisability" :text="FIELD_HELP.selfDisability" /></span>
+          <select
+            v-model="selfDisability"
+            name="selfDisability"
+            :class="selectClass"
+            :aria-describedby="tipIds.selfDisability"
+          >
             <option value="none">なし</option>
             <option value="regular">障害者</option>
             <option value="special">特別障害者</option>
           </select>
         </label>
-        <p class="pt-2 text-xs text-ink-muted">配偶者・扶養親族のうち</p>
+        <p class="relative pt-2 text-xs text-ink-muted">
+          配偶者・扶養親族のうち<InfoTip :id="tipIds.familyDisabilities" :text="FIELD_HELP.familyDisabilities" />
+        </p>
         <NumberField
           v-for="field in FAMILY_DISABILITY_FIELDS"
           :key="field.key"
@@ -143,9 +182,14 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           :name="`disability_${field.key}`"
           :min="0"
         />
-        <label class="flex items-baseline justify-between gap-3 py-1.5 text-sm">
-          <span>寡婦・ひとり親</span>
-          <select v-model="singleStatus" name="singleStatus" :class="selectClass">
+        <label class="relative flex items-baseline justify-between gap-3 py-1.5 text-sm">
+          <span>寡婦・ひとり親<InfoTip :id="tipIds.singleStatus" :text="FIELD_HELP.singleStatus" /></span>
+          <select
+            v-model="singleStatus"
+            name="singleStatus"
+            :class="selectClass"
+            :aria-describedby="tipIds.singleStatus"
+          >
             <option value="none">該当なし</option>
             <option value="widow">寡婦</option>
             <option value="singleParent">ひとり親</option>
