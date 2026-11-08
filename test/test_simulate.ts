@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { DEFAULT_HOUSEHOLD, paysCareInsurance, simulateTax } from "../src/utils/simulate";
+import { DEFAULT_HOUSEHOLD, type Household, paysCareInsurance, simulateTax } from "../src/utils/simulate";
 
 // Expected values are worked out by hand from the published tables, step by step.
 describe("simulateTax worked examples", () => {
@@ -104,6 +104,33 @@ describe("simulateTax worked examples", () => {
     expect(r.incomeTaxYen).toBe(5_500);
     // (2,760,000 - 599,976 - 430,000 - 780,000) floored = 950,000 x 10%
     expect(r.localTaxYen).toBe(95_000);
+  });
+
+  test("4,000,000 yen as a single parent", () => {
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, singleStatus: "singleParent" });
+    // 2,760,000 - 599,976 - 1,040,000 - 350,000 = 770,024, floored
+    expect(r.incomeTaxYen).toBe(38_500);
+    // (2,760,000 - 599,976 - 430,000 - 300,000) floored = 1,430,000 x 10%
+    expect(r.localTaxYen).toBe(143_000);
+  });
+
+  test("single parent deduction stops above 5,000,000 yen of salary income", () => {
+    // 7,000,000 - 1,800,000 = 5,200,000
+    const r = simulateTax(7_000_000, { ...DEFAULT_HOUSEHOLD, singleStatus: "singleParent" });
+    expect(r.singleStatusDeduction).toEqual({ incomeTaxYen: 0, residentTaxYen: 0 });
+  });
+
+  test("disability deductions add to the personal deductions", () => {
+    const household: Household = {
+      ...DEFAULT_HOUSEHOLD,
+      selfDisability: "regular",
+      familyDisabilities: { regular: 0, special: 0, cohabitingSpecial: 1 },
+    };
+    const r = simulateTax(4_000_000, household);
+    // 270,000 + 750,000 = 1,020,000: 2,760,000 - 599,976 - 1,040,000 - 1,020,000 = 100,024
+    expect(r.taxableIncomeYen).toBe(100_000);
+    // 260,000 + 530,000 = 790,000: 2,760,000 - 599,976 - 430,000 - 790,000 = 940,024
+    expect(r.localTaxYen).toBe(94_000);
   });
 
   test("salary below the minimum deduction leaves no salary income", () => {

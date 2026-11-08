@@ -1,8 +1,14 @@
 import { describe, expect, test } from "vitest";
 import {
+  type FamilyDisabilities,
   NO_DEDUCTION,
   NO_DEPENDENTS,
+  NO_FAMILY_DISABILITIES,
+  type SelfDisability,
+  type SingleStatus,
   dependentDeduction,
+  disabilityDeduction,
+  singleStatusDeduction,
   spouseDeduction,
   spouseTotalIncome,
 } from "../src/utils/deductions";
@@ -84,5 +90,42 @@ describe("dependentDeduction", () => {
 
   test.each([-1, NaN, Infinity, 1.7])("count %d is treated as a whole, non-negative number", (count) =>
     expect(dependentDeduction({ ...NO_DEPENDENTS, general: count }).incomeTaxYen).toBe(count === 1.7 ? 380_000 : 0),
+  );
+});
+
+const DISABILITY_CASES: [SelfDisability, Partial<FamilyDisabilities>, number, number][] = [
+  ["none", {}, 0, 0],
+  ["regular", {}, 270_000, 260_000],
+  ["special", {}, 400_000, 300_000],
+  ["none", { regular: 2 }, 540_000, 520_000],
+  ["none", { cohabitingSpecial: 1 }, 750_000, 530_000],
+  ["special", { regular: 1, cohabitingSpecial: 1 }, 1_420_000, 1_090_000],
+];
+
+describe("disabilityDeduction", () => {
+  test.each(DISABILITY_CASES)("self %s family %j -> %d / %d", (self, family, incomeTaxYen, residentTaxYen) =>
+    expect(disabilityDeduction(self, { ...NO_FAMILY_DISABILITIES, ...family })).toEqual({
+      incomeTaxYen,
+      residentTaxYen,
+    }),
+  );
+
+  test("negative or blank counts add nothing", () =>
+    expect(disabilityDeduction("none", { regular: -1, special: NaN, cohabitingSpecial: 0 })).toEqual(NO_DEDUCTION));
+});
+
+const SINGLE_STATUS_CASES: [SingleStatus, number, number, number][] = [
+  ["none", 3_000_000, 0, 0],
+  ["widow", 3_000_000, 270_000, 260_000],
+  ["singleParent", 3_000_000, 350_000, 300_000],
+  ["widow", 5_000_000, 270_000, 260_000],
+  ["widow", 5_000_001, 0, 0],
+  ["singleParent", 5_000_001, 0, 0],
+  ["singleParent", NaN, 0, 0],
+];
+
+describe("singleStatusDeduction", () => {
+  test.each(SINGLE_STATUS_CASES)("%s at %d -> %d / %d", (status, ownYen, incomeTaxYen, residentTaxYen) =>
+    expect(singleStatusDeduction(status, ownYen)).toEqual({ incomeTaxYen, residentTaxYen }),
   );
 });

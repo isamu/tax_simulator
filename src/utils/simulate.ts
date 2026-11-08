@@ -7,7 +7,13 @@ import {
 } from "./tax";
 import {
   type Dependents,
+  type FamilyDisabilities,
   NO_DEPENDENTS,
+  NO_FAMILY_DISABILITIES,
+  type SelfDisability,
+  type SingleStatus,
+  disabilityDeduction,
+  singleStatusDeduction,
   type PersonalDeduction,
   type Spouse,
   addDeductions,
@@ -49,9 +55,23 @@ export const BUDGET_ITEMS: readonly BudgetItem[] = [
 
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);
 
-export type Household = { ageYears: number; spouse: Spouse | null; dependents: Dependents };
+export type Household = {
+  ageYears: number;
+  spouse: Spouse | null;
+  dependents: Dependents;
+  selfDisability: SelfDisability;
+  familyDisabilities: FamilyDisabilities;
+  singleStatus: SingleStatus;
+};
 
-export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30, spouse: null, dependents: NO_DEPENDENTS };
+export const DEFAULT_HOUSEHOLD: Household = {
+  ageYears: 30,
+  spouse: null,
+  dependents: NO_DEPENDENTS,
+  selfDisability: "none",
+  familyDisabilities: NO_FAMILY_DISABILITIES,
+  singleStatus: "none",
+};
 
 export const paysCareInsurance = (ageYears: number): boolean =>
   ageYears >= CARE_INSURANCE_MIN_AGE && ageYears < CARE_INSURANCE_END_AGE;
@@ -75,6 +95,8 @@ export type Taxes = {
   basicDeductionYen: number;
   spouseDeduction: PersonalDeduction;
   dependentDeduction: PersonalDeduction;
+  disabilityDeduction: PersonalDeduction;
+  singleStatusDeduction: PersonalDeduction;
   taxableIncomeYen: number;
   incomeTaxYen: number;
   reconstructionTaxYen: number;
@@ -144,7 +166,9 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, househ
   const basicDeductionYen = incomeTaxBasicDeduction(salaryIncomeYen);
   const spouse = spouseDeduction(salaryIncomeYen, household.spouse);
   const dependents = dependentDeduction(household.dependents);
-  const family = addDeductions(spouse, dependents);
+  const disability = disabilityDeduction(household.selfDisability, household.familyDisabilities);
+  const singleStatus = singleStatusDeduction(household.singleStatus, salaryIncomeYen);
+  const family = [dependents, disability, singleStatus].reduce(addDeductions, spouse);
   const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen + family.incomeTaxYen);
   const incomeTaxYen = Math.round(incomeTax(taxableIncomeYen));
   const residentDeductionsYen = residentTaxBasicDeduction(salaryIncomeYen) + family.residentTaxYen;
@@ -154,6 +178,8 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, househ
     basicDeductionYen,
     spouseDeduction: spouse,
     dependentDeduction: dependents,
+    disabilityDeduction: disability,
+    singleStatusDeduction: singleStatus,
     taxableIncomeYen,
     incomeTaxYen,
     reconstructionTaxYen: Math.round(incomeTaxYen * RECONSTRUCTION_TAX_RATE),

@@ -4,7 +4,14 @@ import DonutChart from "./DonutChart.vue";
 import BreakdownTable, { type BreakdownRow } from "./BreakdownTable.vue";
 import { BUDGET_ITEMS, DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../utils/simulate";
 import { toJpNumber } from "../utils/tax";
-import { type Dependents, NO_DEPENDENTS } from "../utils/deductions";
+import {
+  type Dependents,
+  type FamilyDisabilities,
+  NO_DEPENDENTS,
+  NO_FAMILY_DISABILITIES,
+  type SelfDisability,
+  type SingleStatus,
+} from "../utils/deductions";
 import { incomeFromHash } from "../utils/hash";
 
 const DEFAULT_INCOME_GROSS_YEN = 4000000;
@@ -24,6 +31,15 @@ const DEPENDENT_FIELDS: { key: keyof Dependents; label: string }[] = [
 ];
 const dependentInputs = ref<Record<keyof Dependents, number | "">>({ ...NO_DEPENDENTS });
 
+const FAMILY_DISABILITY_FIELDS: { key: keyof FamilyDisabilities; label: string }[] = [
+  { key: "regular", label: "障害者" },
+  { key: "special", label: "特別障害者" },
+  { key: "cohabitingSpecial", label: "同居特別障害者" },
+];
+const selfDisability = ref<SelfDisability>("none");
+const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, number | "">>({ ...NO_FAMILY_DISABILITIES });
+const singleStatus = ref<SingleStatus>("none");
+
 const household = computed<Household>(() => ({
   ageYears: Number(ageInput.value),
   spouse: hasSpouse.value ? { salaryYen: Number(spouseSalaryInput.value), isElderly: spouseIsElderly.value } : null,
@@ -33,6 +49,13 @@ const household = computed<Household>(() => ({
     elderly: Number(dependentInputs.value.elderly),
     cohabitingParents: Number(dependentInputs.value.cohabitingParents),
   },
+  selfDisability: selfDisability.value,
+  familyDisabilities: {
+    regular: Number(familyDisabilityInputs.value.regular),
+    special: Number(familyDisabilityInputs.value.special),
+    cohabitingSpecial: Number(familyDisabilityInputs.value.cohabitingSpecial),
+  },
+  singleStatus: singleStatus.value,
 }));
 const result = computed(() => simulateTax(Number(incomeInput.value), household.value));
 
@@ -76,6 +99,8 @@ const detailRows = computed<BreakdownRow[]>(() => {
     { label: "住民税", valueYen: r.localTaxYen, showSymbol: true },
     { group: "控除", label: "配偶者（特別）控除", valueYen: r.spouseDeduction.incomeTaxYen, showSymbol: true },
     { label: "扶養控除", valueYen: r.dependentDeduction.incomeTaxYen, showSymbol: true },
+    { label: "障害者控除", valueYen: r.disabilityDeduction.incomeTaxYen, showSymbol: true },
+    { label: "寡婦・ひとり親控除", valueYen: r.singleStatusDeduction.incomeTaxYen, showSymbol: true },
     { label: "基礎控除", valueYen: r.basicDeductionYen, showSymbol: true },
     { label: "給与控除", valueYen: r.salaryDeductionYen, showSymbol: true },
     { group: "所得", label: "控除後所得", valueYen: r.taxableIncomeYen, showSymbol: true },
@@ -102,6 +127,30 @@ const detailRows = computed<BreakdownRow[]>(() => {
       {{ field.label }}
       <input v-model="dependentInputs[field.key]" type="number" min="0" :placeholder="field.key" />人
     </label>
+    <br />
+    本人の障害:
+    <select v-model="selfDisability" name="selfDisability">
+      <option value="none">なし</option>
+      <option value="regular">障害者</option>
+      <option value="special">特別障害者</option>
+    </select>
+    配偶者・扶養親族のうち:
+    <label v-for="field in FAMILY_DISABILITY_FIELDS" :key="field.key" class="dependent">
+      {{ field.label }}
+      <input
+        v-model="familyDisabilityInputs[field.key]"
+        type="number"
+        min="0"
+        :placeholder="`disability_${field.key}`"
+      />人
+    </label>
+    <br />
+    寡婦・ひとり親:
+    <select v-model="singleStatus" name="singleStatus">
+      <option value="none">該当なし</option>
+      <option value="widow">寡婦</option>
+      <option value="singleParent">ひとり親</option>
+    </select>
     <br />
 
     <hr />
