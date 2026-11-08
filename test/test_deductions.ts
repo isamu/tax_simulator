@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { NO_DEDUCTION, spouseDeduction, spouseTotalIncome } from "../src/utils/deductions";
+import {
+  NO_DEDUCTION,
+  NO_DEPENDENTS,
+  dependentDeduction,
+  spouseDeduction,
+  spouseTotalIncome,
+} from "../src/utils/deductions";
 
 const spouse = (salaryYen: number, isElderly = false) => ({ salaryYen, isElderly });
 
@@ -61,4 +67,22 @@ describe("spouseDeduction: special deduction (620,000 < spouse income <= 1,330,0
 
   test("the elderly flag does not change the special deduction", () =>
     expect(spouseDeduction(5_000_000, spouse(1_800_000, true))).toEqual(spouseDeduction(5_000_000, spouse(1_800_000))));
+});
+
+describe("dependentDeduction", () => {
+  test("no dependents", () => expect(dependentDeduction(NO_DEPENDENTS)).toEqual(NO_DEDUCTION));
+
+  test.each([
+    [{ general: 1 }, 380_000, 330_000],
+    [{ specific: 1 }, 630_000, 450_000],
+    [{ elderly: 1 }, 480_000, 380_000],
+    [{ cohabitingParents: 1 }, 580_000, 450_000],
+    [{ general: 2, specific: 1, elderly: 1, cohabitingParents: 1 }, 2_450_000, 1_940_000],
+  ])("%j -> %d / %d", (counts, incomeTaxYen, residentTaxYen) =>
+    expect(dependentDeduction({ ...NO_DEPENDENTS, ...counts })).toEqual({ incomeTaxYen, residentTaxYen }),
+  );
+
+  test.each([-1, NaN, Infinity, 1.7])("count %d is treated as a whole, non-negative number", (count) =>
+    expect(dependentDeduction({ ...NO_DEPENDENTS, general: count }).incomeTaxYen).toBe(count === 1.7 ? 380_000 : 0),
+  );
 });
