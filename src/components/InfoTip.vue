@@ -16,7 +16,7 @@ defineProps<{ id: string; text: string }>();
     <span
       :id="id"
       role="tooltip"
-      class="invisible absolute top-full right-0 left-0 z-20 min-w-64 mt-1 border border-rule-strong bg-paper-raised p-2 text-xs leading-relaxed font-normal text-ink group-hover/tip:visible group-focus-within/tip:visible"
+      class="invisible absolute top-full right-0 left-0 z-20 min-w-64 whitespace-normal mt-1 border border-rule-strong bg-paper-raised p-2 text-xs leading-relaxed font-normal text-ink group-hover/tip:visible group-focus-within/tip:visible"
     >
       {{ text }}
     </span>

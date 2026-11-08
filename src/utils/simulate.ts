@@ -38,17 +38,47 @@ const RECONSTRUCTION_TAX_RATE = 0.021;
 const LOCAL_TAX_RATE = 0.1;
 const TAXABLE_INCOME_UNIT_YEN = 1000;
 
-export type BudgetItem = { label: string; amountOkuYen: number };
+export type BudgetItem = { label: string; amountOkuYen: number; description: string };
 
 // FY2026 general account expenditure after the supplementary budget (MOF, October 2026).
 export const BUDGET_ITEMS: readonly BudgetItem[] = [
-  { label: "社会保障", amountOkuYen: 390559 },
-  { label: "地方交付税交付金等", amountOkuYen: 208778 },
-  { label: "公共事業", amountOkuYen: 61078 },
-  { label: "文教及び科学振興", amountOkuYen: 60406 },
-  { label: "防衛", amountOkuYen: 89843 },
-  { label: "その他", amountOkuYen: 130806 },
-  { label: "国債費", amountOkuYen: 312758 },
+  {
+    label: "社会保障",
+    amountOkuYen: 390559,
+    description: "年金・医療・介護・子育て支援・生活保護などに国が出すお金です。高齢化で年々増えています。",
+  },
+  {
+    label: "地方交付税交付金等",
+    amountOkuYen: 208778,
+    description:
+      "地域による税収の差をならすため、国が集めた税金を都道府県や市区町村に配るお金です。自治体の学校・警察・消防などに使われます。",
+  },
+  {
+    label: "公共事業",
+    amountOkuYen: 61078,
+    description: "道路・河川・港・住宅・防災など、暮らしや経済の土台を整える工事のお金です。",
+  },
+  {
+    label: "文教及び科学振興",
+    amountOkuYen: 60406,
+    description: "公立小中学校の先生の給与の一部、国立大学、奨学金、科学技術の研究開発などのお金です。",
+  },
+  {
+    label: "防衛",
+    amountOkuYen: 89843,
+    description: "自衛隊の人件費・装備・訓練など、国の防衛のためのお金です。",
+  },
+  {
+    label: "その他",
+    amountOkuYen: 130806,
+    description: "食料の安定供給、エネルギー対策、経済協力（ODA）、中小企業対策、災害などに備える予備費などです。",
+  },
+  {
+    label: "国債費",
+    amountOkuYen: 312758,
+    description:
+      "政府の借金（国債）の返済と利払いに使われます。これからも赤字国債が増えたり、金利が上昇すると増えます。",
+  },
 ];
 
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);

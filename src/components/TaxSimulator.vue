@@ -88,7 +88,6 @@ const shareItems = computed(() => [
 ]);
 
 const sections = computed(() => ledgerSections(result.value));
-const budgetLabels = BUDGET_ITEMS.map(({ label }) => label);
 
 const tipIds = {
   care: useId(),
@@ -241,7 +240,7 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         <h2 class="border-b border-rule-strong pb-1 text-xs font-bold tracking-[0.2em] text-ink-muted">
           所得税 {{ formatYen(result.incomeTaxYen) }}円の使いみち
         </h2>
-        <BudgetTable :labels="budgetLabels" :values-yen="result.budgetsYen" />
+        <BudgetTable :items="BUDGET_ITEMS" :values-yen="result.budgetsYen" />
         <p class="mt-2 text-xs text-ink-muted">令和8年度一般会計（補正後）の歳出の割合で按分した目安です。</p>
       </div>
     </section>
