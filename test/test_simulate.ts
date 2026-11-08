@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { paysCareInsurance, simulateTax } from "../src/utils/simulate";
+import { DEFAULT_HOUSEHOLD, paysCareInsurance, simulateTax } from "../src/utils/simulate";
 
 // Expected values are worked out by hand from the published tables, step by step.
 describe("simulateTax worked examples", () => {
@@ -68,7 +68,7 @@ describe("simulateTax worked examples", () => {
   });
 
   test("4,000,000 yen at age 45 adds care insurance", () => {
-    const r = simulateTax(4_000_000, { ageYears: 45 });
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 45 });
     // 340,000 x 1.62% / 2 = 2,754
     expect(r.careInsuranceMonthlyYen).toBe(2_754);
     expect(r.insuranceSumYen).toBe(599_976 + 2_754 * 12);
@@ -81,8 +81,18 @@ describe("simulateTax worked examples", () => {
   });
 
   test("care insurance is zero outside 40-64", () => {
-    expect(simulateTax(4_000_000, { ageYears: 30 }).careInsuranceMonthlyYen).toBe(0);
-    expect(simulateTax(4_000_000, { ageYears: 65 }).careInsuranceMonthlyYen).toBe(0);
+    expect(simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 30 }).careInsuranceMonthlyYen).toBe(0);
+    expect(simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 65 }).careInsuranceMonthlyYen).toBe(0);
+  });
+
+  test("4,000,000 yen with a spouse earning nothing", () => {
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, spouse: { salaryYen: 0, isElderly: false } });
+    expect(r.spouseDeduction).toEqual({ incomeTaxYen: 380_000, residentTaxYen: 330_000 });
+    // 2,760,000 - 599,976 - 1,040,000 - 380,000 = 740,024, floored
+    expect(r.taxableIncomeYen).toBe(740_000);
+    expect(r.incomeTaxYen).toBe(37_000);
+    // (2,760,000 - 599,976 - 430,000 - 330,000) floored = 1,400,000 x 10%
+    expect(r.localTaxYen).toBe(140_000);
   });
 
   test("salary below the minimum deduction leaves no salary income", () => {
@@ -120,7 +130,7 @@ describe("simulateTax properties", () => {
 
   test(`totals are consistent (seed ${seed})`, () => {
     incomes.forEach((income) => {
-      const r = simulateTax(income, { ageYears: Math.floor(random() * 80) });
+      const r = simulateTax(income, { ...DEFAULT_HOUSEHOLD, ageYears: Math.floor(random() * 80) });
       expect(r.insuranceSumYen).toBe(
         r.healthInsuranceYearlyYen +
           r.childSupportYearlyYen +
