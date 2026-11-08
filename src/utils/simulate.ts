@@ -5,6 +5,7 @@ import {
   salaryIncomeDeduction,
   standardMonthlyFee,
 } from "./tax";
+import { type PersonalDeduction, type Spouse, spouseDeduction } from "./deductions";
 
 const MONTHS_PER_YEAR = 12;
 // Rates are the employer + employee total; the employee pays half.
@@ -41,9 +42,9 @@ export const BUDGET_ITEMS: readonly BudgetItem[] = [
 
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);
 
-export type Household = { ageYears: number };
+export type Household = { ageYears: number; spouse: Spouse | null };
 
-export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30 };
+export const DEFAULT_HOUSEHOLD: Household = { ageYears: 30, spouse: null };
 
 export const paysCareInsurance = (ageYears: number): boolean =>
   ageYears >= CARE_INSURANCE_MIN_AGE && ageYears < CARE_INSURANCE_END_AGE;
@@ -65,6 +66,7 @@ export type SocialInsurance = {
 export type Taxes = {
   salaryDeductionYen: number;
   basicDeductionYen: number;
+  spouseDeduction: PersonalDeduction;
   taxableIncomeYen: number;
   incomeTaxYen: number;
   reconstructionTaxYen: number;
@@ -123,26 +125,25 @@ const employerInsuranceYen = (incomeGrossYen: number, insurance: SocialInsurance
   sharedInsuranceYen(insurance) +
   Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYER_UNEMPLOYMENT_RATE) * MONTHS_PER_YEAR;
 
-const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, basicDeductionYen: number): number => {
-  const incomeYen = Math.max(salaryIncomeYen - insuranceYen - basicDeductionYen - DEPENDENT_DEDUCTION_YEN, 0);
+const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, personalDeductionsYen: number): number => {
+  const incomeYen = Math.max(salaryIncomeYen - insuranceYen - personalDeductionsYen - DEPENDENT_DEDUCTION_YEN, 0);
   return Math.floor(incomeYen / TAXABLE_INCOME_UNIT_YEN) * TAXABLE_INCOME_UNIT_YEN;
 };
 
-export const taxes = (incomeGrossYen: number, insurance: SocialInsurance): Taxes => {
+export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, household: Household): Taxes => {
   const salaryDeductionYen = salaryIncomeDeduction(incomeGrossYen);
   const salaryIncomeYen = incomeGrossYen - salaryDeductionYen;
   const insuranceYen = yearlyInsuranceYen(insurance);
   const basicDeductionYen = incomeTaxBasicDeduction(salaryIncomeYen);
-  const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen);
+  const spouse = spouseDeduction(salaryIncomeYen, household.spouse);
+  const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen + spouse.incomeTaxYen);
   const incomeTaxYen = Math.round(incomeTax(taxableIncomeYen));
-  const localTaxableIncomeYen = taxableIncome(
-    salaryIncomeYen,
-    insuranceYen,
-    residentTaxBasicDeduction(salaryIncomeYen),
-  );
+  const residentDeductionsYen = residentTaxBasicDeduction(salaryIncomeYen) + spouse.residentTaxYen;
+  const localTaxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, residentDeductionsYen);
   return {
     salaryDeductionYen,
     basicDeductionYen,
+    spouseDeduction: spouse,
     taxableIncomeYen,
     incomeTaxYen,
     reconstructionTaxYen: Math.round(incomeTaxYen * RECONSTRUCTION_TAX_RATE),
@@ -155,7 +156,7 @@ export const budgetBreakdown = (incomeTaxYen: number): number[] =>
 
 export const simulateTax = (incomeGrossYen: number, household: Household = DEFAULT_HOUSEHOLD): TaxSimulation => {
   const insurance = socialInsurance(incomeGrossYen, household);
-  const tax = taxes(incomeGrossYen, insurance);
+  const tax = taxes(incomeGrossYen, insurance, household);
   const insuranceSumYen = yearlyInsuranceYen(insurance);
   const companyInsuranceYen = employerInsuranceYen(incomeGrossYen, insurance);
   const taxSumYen = tax.incomeTaxYen + tax.reconstructionTaxYen + tax.localTaxYen;
