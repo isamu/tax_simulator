@@ -21,6 +21,7 @@ import { ledgerSections } from "../utils/ledger";
 import { formatYen } from "../utils/format";
 
 const DEFAULT_INCOME_GROSS_YEN = 4000000;
+const INCOME_STEP_YEN = 1000000;
 
 // v-model on a number input yields "" while the field is empty.
 type NumberInput = number | "";
@@ -113,6 +114,8 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           name="income_gross"
           :min="0"
           :tip="FIELD_HELP.incomeGross"
+          :step="INCOME_STEP_YEN"
+          step-label="100万円"
         />
         <label class="relative flex items-center gap-2 py-1.5 text-sm">
           <input
