@@ -18,11 +18,11 @@ describe("computeFurusatoLimit worked example", () => {
     const r = computeFurusatoLimit(BASE_INPUT);
     // 12,000,000 - 5,000,000 - 650,000
     expect(r.totalIncomeYen).toBe(6_350_000);
-    // 4,890,000 < 6,350,000 <= 6,550,000
-    expect(r.incomeTaxBasicYen).toBe(630_000);
+    // Reiwa 8: 4,890,000 < 6,350,000 <= 6,550,000
+    expect(r.incomeTaxBasicYen).toBe(670_000);
     expect(r.residentBasicYen).toBe(430_000);
-    // 6,350,000 - 1,200,000 - 630,000
-    expect(r.taxableYen).toBe(4_520_000);
+    // 6,350,000 - 1,200,000 - 670,000
+    expect(r.taxableYen).toBe(4_480_000);
     // 6,350,000 - 1,200,000 - 430,000
     expect(r.residentTaxableYen).toBe(4_720_000);
     // above 2,000,000: max((50,000 - 2,720,000) x 5%, 2,500)
@@ -40,7 +40,8 @@ describe("computeFurusatoLimit worked example", () => {
 describe("computeFurusatoLimit branches", () => {
   test("adjustment below 2,000,000 yen uses the smaller of gap and taxable income", () => {
     const r = computeFurusatoLimit({ ...BASE_INPUT, salesYen: 3_000_000, expensesYen: 1_000_000 });
-    // total 1,350,000 -> basic 880,000 / 430,000; resident taxable 1,350,000 - 1,200,000 - 430,000 < 0 -> 0
+    expect(r.incomeTaxBasicYen).toBe(1_040_000);
+    // total 1,350,000 -> basic 1,040,000 / 430,000; resident taxable 1,350,000 - 1,200,000 - 430,000 < 0 -> 0
     expect(r.residentTaxableYen).toBe(0);
     expect(r.adjustYen).toBe(0);
     expect(r.limitYen).toBe(0);

@@ -1,5 +1,6 @@
+import { incomeTaxBasicDeduction, residentTaxBasicDeduction } from "./tax";
+
 type TaxBracket = { upToYen: number; rate: number; label: string };
-type AmountBracket = { upToYen: number; amountYen: number };
 
 export const FURUSATO_TAX_BRACKETS: readonly TaxBracket[] = [
   { upToYen: 1949000, rate: 0.05, label: "195万円未満" },
@@ -9,26 +10,6 @@ export const FURUSATO_TAX_BRACKETS: readonly TaxBracket[] = [
   { upToYen: 17999000, rate: 0.33, label: "900万〜1,800万円未満" },
   { upToYen: 39999000, rate: 0.4, label: "1,800万〜4,000万円未満" },
   { upToYen: Infinity, rate: 0.45, label: "4,000万円以上" },
-];
-
-// Reiwa 7 (2025) basic deductions.
-const INCOME_TAX_BASIC: readonly AmountBracket[] = [
-  { upToYen: 1320000, amountYen: 950000 },
-  { upToYen: 3360000, amountYen: 880000 },
-  { upToYen: 4890000, amountYen: 680000 },
-  { upToYen: 6550000, amountYen: 630000 },
-  { upToYen: 23500000, amountYen: 580000 },
-  { upToYen: 24000000, amountYen: 480000 },
-  { upToYen: 24500000, amountYen: 320000 },
-  { upToYen: 25000000, amountYen: 160000 },
-  { upToYen: Infinity, amountYen: 0 },
-];
-
-const RESIDENT_BASIC: readonly AmountBracket[] = [
-  { upToYen: 24000000, amountYen: 430000 },
-  { upToYen: 24500000, amountYen: 290000 },
-  { upToYen: 25000000, amountYen: 150000 },
-  { upToYen: Infinity, amountYen: 0 },
 ];
 
 const RECONSTRUCTION_MULTIPLIER = 1.021;
@@ -80,9 +61,6 @@ export const coefficientFor = (rate: number): number =>
 const rateFor = (judgeIncomeYen: number): number =>
   judgeIncomeYen <= 0 ? 0 : (lookup(FURUSATO_TAX_BRACKETS, judgeIncomeYen)?.rate ?? NaN);
 
-const amountFor = (table: readonly AmountBracket[], valueYen: number): number =>
-  lookup(table, valueYen)?.amountYen ?? NaN;
-
 const adjustmentDeduction = (residentTaxableYen: number, gapYen: number, totalIncomeYen: number): number => {
   if (totalIncomeYen > ADJUST_INCOME_LIMIT_YEN) return 0;
   if (residentTaxableYen <= ADJUST_THRESHOLD_YEN) return Math.min(gapYen, residentTaxableYen) * ADJUST_RATE;
@@ -99,8 +77,8 @@ const incomeAndDeductions = (input: FurusatoInput): IncomeAndDeductions => {
   return {
     totalIncomeYen,
     commonDeductionsYen: input.socialInsuranceYen + input.otherDeductionYen,
-    incomeTaxBasicYen: amountFor(INCOME_TAX_BASIC, totalIncomeYen),
-    residentBasicYen: amountFor(RESIDENT_BASIC, totalIncomeYen),
+    incomeTaxBasicYen: incomeTaxBasicDeduction(totalIncomeYen),
+    residentBasicYen: residentTaxBasicDeduction(totalIncomeYen),
   };
 };
 
