@@ -43,6 +43,8 @@ describe("simulateTax worked examples", () => {
     });
     expect(r.companyInsuranceYen).toBe(640_656);
     expect(r.totalLaborCostYen).toBe(4_640_656);
+    // 173,000 x 20% / (90% - 5% x 1.021) + 2,000 = 42,756.2
+    expect(r.furusatoLimitYen).toBe(42_756);
   });
 
   test("1,000,000 yen uses the minimum salary deduction", () => {
