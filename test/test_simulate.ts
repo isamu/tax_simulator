@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { DEFAULT_HOUSEHOLD, type Household, paysCareInsurance, simulateTax } from "../src/utils/simulate";
+import { DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../src/utils/simulate";
 
 // Expected values are worked out by hand from the published tables, step by step.
 describe("simulateTax worked examples", () => {
@@ -67,8 +67,8 @@ describe("simulateTax worked examples", () => {
     expect(simulateTax(6_700_000).basicDeductionYen).toBe(670_000);
   });
 
-  test("4,000,000 yen at age 45 adds care insurance", () => {
-    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 45 });
+  test("4,000,000 yen aged 40-64 adds care insurance", () => {
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, paysCareInsurance: true });
     // 340,000 x 1.62% / 2 = 2,754
     expect(r.careInsuranceMonthlyYen).toBe(2_754);
     expect(r.insuranceSumYen).toBe(599_976 + 2_754 * 12);
@@ -80,9 +80,8 @@ describe("simulateTax worked examples", () => {
     expect(r.companyInsuranceYen).toBe((16_830 + 391 + 2_754 + 31_110 + 2_833) * 12);
   });
 
-  test("care insurance is zero outside 40-64", () => {
-    expect(simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 30 }).careInsuranceMonthlyYen).toBe(0);
-    expect(simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, ageYears: 65 }).careInsuranceMonthlyYen).toBe(0);
+  test("care insurance is zero when not aged 40-64", () => {
+    expect(simulateTax(4_000_000, DEFAULT_HOUSEHOLD).careInsuranceMonthlyYen).toBe(0);
   });
 
   test("4,000,000 yen with a spouse earning nothing", () => {
@@ -148,19 +147,6 @@ const seededRandom = (seed: number): (() => number) => {
   };
 };
 
-describe("paysCareInsurance", () => {
-  test.each([
-    [0, false],
-    [39, false],
-    [39.9, false],
-    [40, true],
-    [64, true],
-    [64.9, true],
-    [65, false],
-    [NaN, false],
-  ])("%d -> %s", (age, expected) => expect(paysCareInsurance(age)).toBe(expected));
-});
-
 describe("simulateTax properties", () => {
   const seed = Number(process.env.TEST_SEED ?? Date.now());
   const random = seededRandom(seed);
@@ -168,7 +154,7 @@ describe("simulateTax properties", () => {
 
   test(`totals are consistent (seed ${seed})`, () => {
     incomes.forEach((income) => {
-      const r = simulateTax(income, { ...DEFAULT_HOUSEHOLD, ageYears: Math.floor(random() * 80) });
+      const r = simulateTax(income, { ...DEFAULT_HOUSEHOLD, paysCareInsurance: random() < 0.5 });
       expect(r.insuranceSumYen).toBe(
         r.healthInsuranceYearlyYen +
           r.childSupportYearlyYen +

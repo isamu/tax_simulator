@@ -26,10 +26,8 @@ const MONTHS_PER_YEAR = 12;
 // The health rate depends on prefecture; this is the Kyokai Kenpo national average for FY2026.
 const HEALTH_INSURANCE_RATE = 0.099;
 const CHILD_SUPPORT_RATE = 0.0023;
-// Only Category 2 insured persons (40-64) pay care insurance through the employer.
+// Only Category 2 insured persons (ages 40-64) pay care insurance through the employer.
 const CARE_INSURANCE_RATE = 0.0162;
-const CARE_INSURANCE_MIN_AGE = 40;
-const CARE_INSURANCE_END_AGE = 65;
 const PENSION_RATE = 0.183;
 const EMPLOYEE_SHARE = 0.5;
 const PENSION_FEE_FLOOR_YEN = 88000;
@@ -56,7 +54,7 @@ export const BUDGET_ITEMS: readonly BudgetItem[] = [
 const BUDGET_TOTAL_OKU_YEN = BUDGET_ITEMS.reduce((sum, { amountOkuYen }) => sum + amountOkuYen, 0);
 
 export type Household = {
-  ageYears: number;
+  paysCareInsurance: boolean;
   spouse: Spouse | null;
   dependents: Dependents;
   selfDisability: SelfDisability;
@@ -65,16 +63,13 @@ export type Household = {
 };
 
 export const DEFAULT_HOUSEHOLD: Household = {
-  ageYears: 30,
+  paysCareInsurance: false,
   spouse: null,
   dependents: NO_DEPENDENTS,
   selfDisability: "none",
   familyDisabilities: NO_FAMILY_DISABILITIES,
   singleStatus: "none",
 };
-
-export const paysCareInsurance = (ageYears: number): boolean =>
-  ageYears >= CARE_INSURANCE_MIN_AGE && ageYears < CARE_INSURANCE_END_AGE;
 
 export type SocialInsurance = {
   standardMonthlyFeeYen: number;
@@ -121,7 +116,7 @@ export const socialInsurance = (incomeGrossYen: number, household: Household): S
   const pensionFeeYen = Math.min(Math.max(standardMonthlyFeeYen, PENSION_FEE_FLOOR_YEN), PENSION_FEE_CAP_YEN);
   const healthInsuranceMonthlyYen = employeeShare(standardMonthlyFeeYen, HEALTH_INSURANCE_RATE);
   const childSupportMonthlyYen = employeeShare(standardMonthlyFeeYen, CHILD_SUPPORT_RATE);
-  const careInsuranceMonthlyYen = paysCareInsurance(household.ageYears)
+  const careInsuranceMonthlyYen = household.paysCareInsurance
     ? employeeShare(standardMonthlyFeeYen, CARE_INSURANCE_RATE)
     : 0;
   const pensionMonthlyYen = employeeShare(pensionFeeYen, PENSION_RATE);

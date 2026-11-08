@@ -26,7 +26,7 @@ const DEFAULT_INCOME_GROSS_YEN = 4000000;
 type NumberInput = number | "";
 
 const incomeInput = ref<NumberInput>(incomeFromHash(location.hash) ?? DEFAULT_INCOME_GROSS_YEN);
-const ageInput = ref<NumberInput>(DEFAULT_HOUSEHOLD.ageYears);
+const paysCareInsurance = ref(DEFAULT_HOUSEHOLD.paysCareInsurance);
 const hasSpouse = ref(false);
 const spouseSalaryInput = ref<NumberInput>(0);
 const spouseIsElderly = ref(false);
@@ -49,7 +49,7 @@ const familyDisabilityInputs = ref<Record<keyof FamilyDisabilities, NumberInput>
 const singleStatus = ref<SingleStatus>("none");
 
 const household = computed<Household>(() => ({
-  ageYears: Number(ageInput.value),
+  paysCareInsurance: paysCareInsurance.value,
   spouse: hasSpouse.value ? { salaryYen: Number(spouseSalaryInput.value), isElderly: spouseIsElderly.value } : null,
   dependents: {
     general: Number(dependentInputs.value.general),
@@ -91,6 +91,7 @@ const sections = computed(() => ledgerSections(result.value));
 const budgetLabels = BUDGET_ITEMS.map(({ label }) => label);
 
 const tipIds = {
+  care: useId(),
   hasSpouse: useId(),
   spouseIsElderly: useId(),
   selfDisability: useId(),
@@ -114,7 +115,16 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           :min="0"
           :tip="FIELD_HELP.incomeGross"
         />
-        <NumberField v-model="ageInput" label="年齢" unit="歳" name="age" :min="0" :tip="FIELD_HELP.age" />
+        <label class="relative flex items-center gap-2 py-1.5 text-sm">
+          <input
+            v-model="paysCareInsurance"
+            type="checkbox"
+            name="care"
+            :class="checkboxClass"
+            :aria-describedby="tipIds.care"
+          />
+          <span>40〜64歳<InfoTip :id="tipIds.care" :text="FIELD_HELP.care" /></span>
+        </label>
       </FormSection>
 
       <FormSection title="配偶者">
