@@ -26,9 +26,9 @@ const insuranceSection = (r: TaxSimulation): LedgerSection => ({
 const taxSection = (r: TaxSimulation): LedgerSection => ({
   title: "税金（年額）",
   rows: [
-    { label: "所得税", valueYen: r.incomeTaxYen },
+    { label: "所得税", valueYen: r.incomeTaxYen, note: r.hasHousingLoan ? "住宅ローン控除後" : undefined },
     { label: "復興特別所得税", valueYen: r.reconstructionTaxYen },
-    { label: "住民税", valueYen: r.localTaxYen, note: "所得割" },
+    { label: "住民税", valueYen: r.localTaxYen, note: r.hasHousingLoan ? "所得割・住宅ローン控除後" : "所得割" },
   ],
   total: { label: "合計", valueYen: r.taxSumYen },
 });
@@ -73,10 +73,24 @@ const employerSection = (r: TaxSimulation): LedgerSection => ({
   total: { label: "合計", valueYen: r.employer.totalYen },
 });
 
+const housingLoanSection = (r: TaxSimulation): LedgerSection => ({
+  title: "住宅ローン控除",
+  rows: [
+    { label: "所得税から", valueYen: r.housingLoanCredit.incomeTaxYen },
+    { label: "住民税から", valueYen: r.housingLoanCredit.residentTaxYen, note: "課税所得の5%まで" },
+    {
+      label: "引き切れない分",
+      valueYen: r.housingLoanCreditYen - r.housingLoanCredit.incomeTaxYen - r.housingLoanCredit.residentTaxYen,
+    },
+  ],
+  total: { label: "控除額", valueYen: r.housingLoanCreditYen },
+});
+
 export const ledgerSections = (r: TaxSimulation): LedgerSection[] => [
   insuranceSection(r),
   taxSection(r),
   deductionSection(r),
+  ...(r.hasHousingLoan ? [housingLoanSection(r)] : []),
   takeHomeSection(r),
   employerSection(r),
 ];

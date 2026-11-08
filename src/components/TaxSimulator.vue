@@ -64,6 +64,7 @@ const household = computed<Household>(() => ({
     cohabitingSpecial: Number(familyDisabilityInputs.value.cohabitingSpecial),
   },
   singleStatus: singleStatus.value,
+  housingLoan: null,
 }));
 const result = computed(() => simulateTax(Number(incomeInput.value), household.value));
 

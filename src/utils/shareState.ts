@@ -76,6 +76,7 @@ const householdFrom = (params: URLSearchParams): Household => {
       cohabitingSpecial: count(params.get("dis_cohab")),
     },
     singleStatus: isSingleStatus(single) ? single : DEFAULT_HOUSEHOLD.singleStatus,
+    housingLoan: DEFAULT_HOUSEHOLD.housingLoan,
   };
 };
 
