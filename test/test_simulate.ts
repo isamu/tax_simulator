@@ -9,32 +9,36 @@ describe("simulateTax worked examples", () => {
     expect(r.standardMonthlyFeeYen).toBe(340_000);
     // 340,000 x 9.9% / 2 = 16,830
     expect(r.healthInsuranceMonthlyYen).toBe(16_830);
-    expect(r.healthInsuranceYearlyYen).toBe(201_960);
+    // 340,000 x 0.23% / 2 = 391
+    expect(r.childSupportMonthlyYen).toBe(391);
     // 340,000 x 18.3% / 2 = 31,110
     expect(r.pensionMonthlyYen).toBe(31_110);
-    // 333,333 x 0.3% = 1,000
-    expect(r.unemploymentYearlyYen).toBe(12_000);
-    expect(r.insuranceSumYen).toBe(587_280);
-    // 4,000,000 x 20% + 540,000
-    expect(r.salaryDeductionYen).toBe(1_340_000);
-    // 2,660,000 - 587,280 - 380,000
-    expect(r.taxableIncomeYen).toBe(1_692_720);
-    // 1,692,720 x 5%
-    expect(r.incomeTaxYen).toBe(84_636);
-    expect(r.reconstructionTaxYen).toBe(1_777);
-    // (2,660,000 - 587,280 - 350,000) x 10%
-    expect(r.localTaxYen).toBe(172_272);
-    expect(r.netIncomeYearlyYen).toBe(4_000_000 - 587_280 - 84_636 - 1_777 - 172_272);
+    // 333,333 x 0.5% = 1,667
+    expect(r.unemploymentMonthlyYen).toBe(1_667);
+    expect(r.insuranceSumYen).toBe((16_830 + 391 + 31_110 + 1_667) * 12);
+    // 4,000,000 x 20% + 440,000
+    expect(r.salaryDeductionYen).toBe(1_240_000);
+    // salary income 2,760,000 <= 4,890,000
+    expect(r.basicDeductionYen).toBe(1_040_000);
+    // 2,760,000 - 599,976 - 1,040,000 = 1,120,024, floored to 1,000 yen
+    expect(r.taxableIncomeYen).toBe(1_120_000);
+    expect(r.incomeTaxYen).toBe(56_000);
+    expect(r.reconstructionTaxYen).toBe(1_176);
+    // (2,760,000 - 599,976 - 430,000) floored = 1,730,000 x 10%
+    expect(r.localTaxYen).toBe(173_000);
+    expect(r.netIncomeYearlyYen).toBe(4_000_000 - 599_976 - 56_000 - 1_176 - 173_000);
+    // employer: same health, child support and pension, plus 333,333 x 0.85% = 2,833 per month
+    expect(r.companyInsuranceYen).toBe((16_830 + 391 + 31_110 + 2_833) * 12);
   });
 
   test("1,000,000 yen uses the minimum salary deduction", () => {
     const r = simulateTax(1_000_000);
-    // 40% would be 400,000; the minimum is 650,000
-    expect(r.salaryDeductionYen).toBe(650_000);
-    // 83,333 -> grade 88,000; 88,000 x 9.9% / 2 = 4,356 and x 18.3% / 2 = 8,052
+    // 30% + 80,000 would be 380,000; the minimum is 740,000
+    expect(r.salaryDeductionYen).toBe(740_000);
+    // 83,333 -> grade 88,000
     expect(r.healthInsuranceMonthlyYen).toBe(4_356);
+    expect(r.childSupportMonthlyYen).toBe(101);
     expect(r.pensionMonthlyYen).toBe(8_052);
-    expect(r.taxableIncomeYen).toBe(0);
     expect(r.taxSumYen).toBe(0);
     expect(r.netIncomeYearlyYen).toBe(1_000_000 - r.insuranceSumYen);
   });
@@ -42,18 +46,25 @@ describe("simulateTax worked examples", () => {
   test("pension uses its own floor of 88,000 yen", () => {
     const r = simulateTax(600_000);
     expect(r.standardMonthlyFeeYen).toBe(58_000);
-    // 58,000 x 9.9% / 2 = 2,871
     expect(r.healthInsuranceMonthlyYen).toBe(2_871);
-    // 88,000 x 18.3% / 2 = 8,052
     expect(r.pensionMonthlyYen).toBe(8_052);
   });
 
-  test("pension is capped at 620,000 yen", () => {
+  test("pension is capped at 650,000 yen", () => {
     const r = simulateTax(20_000_000);
     expect(r.standardMonthlyFeeYen).toBe(1_390_000);
-    // 620,000 x 18.3% / 2 = 56,730
-    expect(r.pensionMonthlyYen).toBe(56_730);
-    expect(r.salaryDeductionYen).toBe(2_200_000);
+    // 650,000 x 18.3% / 2 = 59,475
+    expect(r.pensionMonthlyYen).toBe(59_475);
+    expect(r.salaryDeductionYen).toBe(1_950_000);
+    // salary income 18,050,000 -> 620,000
+    expect(r.basicDeductionYen).toBe(620_000);
+  });
+
+  test("basic deduction drops once salary income passes 4,890,000 yen", () => {
+    // 6,650,000 - (665,000 + 1,100,000) = 4,885,000
+    expect(simulateTax(6_650_000).basicDeductionYen).toBe(1_040_000);
+    // 6,700,000 - (670,000 + 1,100,000) = 4,930,000
+    expect(simulateTax(6_700_000).basicDeductionYen).toBe(670_000);
   });
 
   test("salary below the minimum deduction leaves no salary income", () => {
@@ -79,9 +90,11 @@ describe("simulateTax properties", () => {
   test(`totals are consistent (seed ${seed})`, () => {
     incomes.forEach((income) => {
       const r = simulateTax(income);
-      expect(r.insuranceSumYen).toBe(r.healthInsuranceYearlyYen + r.pensionYearlyYen + r.unemploymentYearlyYen);
+      expect(r.insuranceSumYen).toBe(
+        r.healthInsuranceYearlyYen + r.childSupportYearlyYen + r.pensionYearlyYen + r.unemploymentYearlyYen,
+      );
       expect(r.taxSumYen).toBe(r.incomeTaxYen + r.reconstructionTaxYen + r.localTaxYen);
-      expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen * 2);
+      expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen + r.companyInsuranceYen);
       expect(r.netIncomeYearlyYen).toBe(income - r.insuranceSumYen - r.taxSumYen);
       expect(r.taxableIncomeYen).toBeGreaterThanOrEqual(0);
       expect(r.salaryDeductionYen).toBeLessThanOrEqual(income);
@@ -92,7 +105,8 @@ describe("simulateTax properties", () => {
     const sorted = incomes.filter((income) => income >= 2_000_000).sort((a, b) => a - b);
     sorted.slice(1).forEach((income, index) => {
       const previous = sorted[index];
-      if (income - previous < 100_000) return;
+      // The basic deduction steps down at fixed incomes, so only compare raises larger than that step.
+      if (income - previous < 500_000) return;
       expect(simulateTax(income).netIncomeYearlyYen).toBeGreaterThan(simulateTax(previous).netIncomeYearlyYen);
     });
   });

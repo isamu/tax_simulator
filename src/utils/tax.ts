@@ -81,14 +81,14 @@ export const incomeTax = (taxableIncomeYen: number): number => {
 
 type SalaryDeductionBracket = { upperBoundYen: number; rate: number; baseYen: number };
 
-const MIN_SALARY_DEDUCTION_YEN = 650000;
-const MAX_SALARY_DEDUCTION_YEN = 2200000;
+// Reiwa 8 (2026) income tax; also used for the Reiwa 9 resident tax.
+const MIN_SALARY_DEDUCTION_YEN = 740000;
+const MAX_SALARY_DEDUCTION_YEN = 1950000;
 
 const SALARY_DEDUCTION_BRACKETS: readonly SalaryDeductionBracket[] = [
-  { upperBoundYen: 1800000, rate: 0.4, baseYen: 0 },
-  { upperBoundYen: 3600000, rate: 0.3, baseYen: 180000 },
-  { upperBoundYen: 6600000, rate: 0.2, baseYen: 540000 },
-  { upperBoundYen: 10000000, rate: 0.1, baseYen: 1200000 },
+  { upperBoundYen: 3600000, rate: 0.3, baseYen: 80000 },
+  { upperBoundYen: 6600000, rate: 0.2, baseYen: 440000 },
+  { upperBoundYen: 8500000, rate: 0.1, baseYen: 1100000 },
 ];
 
 const deductionByBracket = (incomeYen: number): number => {
@@ -99,6 +99,33 @@ const deductionByBracket = (incomeYen: number): number => {
 // The deduction never exceeds the salary itself.
 export const salaryIncomeDeduction = (incomeYen: number): number =>
   Math.max(Math.min(incomeYen, Math.max(deductionByBracket(incomeYen), MIN_SALARY_DEDUCTION_YEN)), 0);
+
+type BasicDeductionBracket = { upperBoundYen: number; deductionYen: number };
+
+// Keyed by total income (合計所得金額); Reiwa 8 includes the temporary top-up for incomes up to 6.55M yen.
+const INCOME_TAX_BASIC_DEDUCTIONS: readonly BasicDeductionBracket[] = [
+  { upperBoundYen: 4890000, deductionYen: 1040000 },
+  { upperBoundYen: 6550000, deductionYen: 670000 },
+  { upperBoundYen: 23500000, deductionYen: 620000 },
+  { upperBoundYen: 24000000, deductionYen: 480000 },
+  { upperBoundYen: 24500000, deductionYen: 320000 },
+  { upperBoundYen: 25000000, deductionYen: 160000 },
+];
+
+const RESIDENT_TAX_BASIC_DEDUCTIONS: readonly BasicDeductionBracket[] = [
+  { upperBoundYen: 24000000, deductionYen: 430000 },
+  { upperBoundYen: 24500000, deductionYen: 290000 },
+  { upperBoundYen: 25000000, deductionYen: 150000 },
+];
+
+const basicDeduction = (brackets: readonly BasicDeductionBracket[], totalIncomeYen: number): number =>
+  brackets.find(({ upperBoundYen }) => totalIncomeYen <= upperBoundYen)?.deductionYen ?? 0;
+
+export const incomeTaxBasicDeduction = (totalIncomeYen: number): number =>
+  basicDeduction(INCOME_TAX_BASIC_DEDUCTIONS, totalIncomeYen);
+
+export const residentTaxBasicDeduction = (totalIncomeYen: number): number =>
+  basicDeduction(RESIDENT_TAX_BASIC_DEDUCTIONS, totalIncomeYen);
 
 const DIGITS_PER_JP_UNIT = 4;
 const JP_NUMBER_UNITS = [
