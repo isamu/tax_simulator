@@ -81,7 +81,7 @@ export const incomeTax = (taxableIncomeYen: number): number => {
 
 type SalaryDeductionBracket = { upperBoundYen: number; rate: number; baseYen: number };
 
-const FULL_DEDUCTION_LIMIT_YEN = 650000;
+const MIN_SALARY_DEDUCTION_YEN = 650000;
 const MAX_SALARY_DEDUCTION_YEN = 2200000;
 
 const SALARY_DEDUCTION_BRACKETS: readonly SalaryDeductionBracket[] = [
@@ -91,16 +91,14 @@ const SALARY_DEDUCTION_BRACKETS: readonly SalaryDeductionBracket[] = [
   { upperBoundYen: 10000000, rate: 0.1, baseYen: 1200000 },
 ];
 
-export const salaryIncomeDeduction = (incomeYen: number): number => {
-  if (incomeYen < FULL_DEDUCTION_LIMIT_YEN) {
-    return incomeYen;
-  }
-  const bracket = SALARY_DEDUCTION_BRACKETS.find(({ upperBoundYen }) => incomeYen < upperBoundYen);
-  if (!bracket) {
-    return MAX_SALARY_DEDUCTION_YEN;
-  }
-  return incomeYen * bracket.rate + bracket.baseYen;
+const deductionByBracket = (incomeYen: number): number => {
+  const bracket = SALARY_DEDUCTION_BRACKETS.find(({ upperBoundYen }) => incomeYen <= upperBoundYen);
+  return bracket ? incomeYen * bracket.rate + bracket.baseYen : MAX_SALARY_DEDUCTION_YEN;
 };
+
+// The deduction never exceeds the salary itself.
+export const salaryIncomeDeduction = (incomeYen: number): number =>
+  Math.max(Math.min(incomeYen, Math.max(deductionByBracket(incomeYen), MIN_SALARY_DEDUCTION_YEN)), 0);
 
 const DIGITS_PER_JP_UNIT = 4;
 const JP_NUMBER_UNITS = [
