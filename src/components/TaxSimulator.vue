@@ -253,6 +253,21 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         </div>
       </div>
 
+      <div class="border-t border-rule-strong pt-3">
+        <p class="text-xs font-bold tracking-[0.2em] text-ink-muted">ふるさと納税の上限額（目安）</p>
+        <p class="mt-1 text-2xl font-bold tabular-nums">
+          {{ formatYen(result.furusatoLimitYen) }}<span class="ml-1 text-base font-normal">円</span>
+        </p>
+        <p class="mt-1 text-sm leading-relaxed">
+          <span>この額までの寄付なら、自己負担は2,000円で済みます。</span
+          ><span
+            >個人事業主の方は<a href="/furusato/" class="text-accent underline underline-offset-2"
+              >ふるさと納税の上限額の計算</a
+            >へ。</span
+          >
+        </p>
+      </div>
+
       <div class="grid gap-8 lg:grid-cols-2">
         <LedgerTable
           v-for="section in sections"

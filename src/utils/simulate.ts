@@ -21,6 +21,7 @@ import {
   spouseDeduction,
 } from "./deductions";
 import { nationalInsurance } from "./nationalInsurance";
+import { furusatoLimitYen } from "./furusato";
 
 const MONTHS_PER_YEAR = 12;
 // Rates are the employer + employee total; the employee pays half.
@@ -148,6 +149,7 @@ export type TaxSimulation = SocialInsurance &
     insuranceTotalWithCompanyYen: number;
     totalLaborCostYen: number;
     taxSumYen: number;
+    furusatoLimitYen: number;
     budgetsYen: number[];
   };
 
@@ -334,6 +336,7 @@ export const simulateTax = (incomeGrossYen: number, household: Household = DEFAU
     insuranceTotalWithCompanyYen: insuranceSumYen + employer.totalYen,
     totalLaborCostYen: incomeGrossYen + employer.totalYen,
     taxSumYen,
+    furusatoLimitYen: furusatoLimitYen(tax.taxableIncomeYen, tax.localTaxYen),
     budgetsYen: budgetBreakdown(tax.incomeTaxYen),
   };
 };

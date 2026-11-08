@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { type FurusatoInput, coefficientFor, computeFurusatoLimit, optionalAmount } from "../src/utils/furusato";
+import {
+  type FurusatoInput,
+  coefficientFor,
+  computeFurusatoLimit,
+  furusatoLimitYen,
+  optionalAmount,
+} from "../src/utils/furusato";
 
 const BASE_INPUT: FurusatoInput = {
   salesYen: 12_000_000,
@@ -92,4 +98,23 @@ describe("optionalAmount", () => {
     [123, 123],
     ["456", 456],
   ])("%j -> %j", (value, expected) => expect(optionalAmount(value)).toBe(expected));
+});
+
+describe("furusatoLimitYen", () => {
+  test.each([
+    // 100,000 x 20% / (90% - 0%) + 2,000
+    [0, 100_000, 24_222],
+    [1_949_000, 100_000, Math.floor((100_000 * 0.2) / (0.9 - 0.05 * 1.021) + 2_000)],
+    [1_950_000, 100_000, Math.floor((100_000 * 0.2) / (0.9 - 0.1 * 1.021) + 2_000)],
+    [40_000_000, 100_000, Math.floor((100_000 * 0.2) / (0.9 - 0.45 * 1.021) + 2_000)],
+    [1_000_000, 0, 0],
+    [1_000_000, -100, 0],
+  ])("taxable %d, income levy %d -> %d", (taxableYen, shotokuwariYen, limitYen) =>
+    expect(furusatoLimitYen(taxableYen, shotokuwariYen)).toBe(limitYen),
+  );
+
+  test("matches computeFurusatoLimit when given the same rate and income levy", () => {
+    const r = computeFurusatoLimit({ ...BASE_INPUT, taxableOverrideYen: 4_480_000 });
+    expect(furusatoLimitYen(4_480_000, r.shotokuwariYen)).toBe(r.limitYen);
+  });
 });
