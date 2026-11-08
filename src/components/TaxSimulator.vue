@@ -39,6 +39,8 @@ const detailRows = computed<BreakdownRow[]>(() => {
     { label: "標準月額報酬", valueYen: r.standardMonthlyFeeYen },
     { group: "社会保険料", label: "健康保険料/月額", valueYen: r.healthInsuranceMonthlyYen, showSymbol: true },
     { label: "健康保険料/年額", valueYen: r.healthInsuranceYearlyYen, showSymbol: true },
+    { label: "子ども・子育て支援金/月額", valueYen: r.childSupportMonthlyYen, showSymbol: true },
+    { label: "子ども・子育て支援金/年額", valueYen: r.childSupportYearlyYen, showSymbol: true },
     { label: "厚生年金/月額", valueYen: r.pensionMonthlyYen, showSymbol: true },
     { label: "厚生年金/年額", valueYen: r.pensionYearlyYen, showSymbol: true },
     { label: "雇用保険/月額", valueYen: r.unemploymentMonthlyYen, showSymbol: true },

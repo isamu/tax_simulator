@@ -1,5 +1,12 @@
 import { describe, expect, test } from "vitest";
-import { incomeTax, salaryIncomeDeduction, standardMonthlyFee, toJpNumber } from "../src/utils/tax";
+import {
+  incomeTax,
+  incomeTaxBasicDeduction,
+  residentTaxBasicDeduction,
+  salaryIncomeDeduction,
+  standardMonthlyFee,
+  toJpNumber,
+} from "../src/utils/tax";
 
 describe("standardMonthlyFee", () => {
   test.each([
@@ -46,16 +53,41 @@ describe("salaryIncomeDeduction", () => {
   test.each([
     [0, 0],
     [500000, 500000],
-    [650000, 650000],
-    [1000000, 650000],
-    [1625000, 650000],
-    [1800000, 720000],
-    [3600000, 1260000],
-    [6600000, 1860000],
-    [10000000, 2200000],
-    [20000000, 2200000],
+    [740000, 740000],
+    [1000000, 740000],
+    [2200000, 740000],
+    [2200001, 740000.3],
+    [3600000, 1160000],
+    [6600000, 1760000],
+    [8500000, 1950000],
+    [20000000, 1950000],
     [-5, 0],
   ])("%d -> %d", (income, deduction) => expect(salaryIncomeDeduction(income)).toBeCloseTo(deduction, 6));
+});
+
+describe("incomeTaxBasicDeduction", () => {
+  test.each([
+    [0, 1040000],
+    [4890000, 1040000],
+    [4890001, 670000],
+    [6550000, 670000],
+    [6550001, 620000],
+    [23500000, 620000],
+    [24000000, 480000],
+    [24500000, 320000],
+    [25000000, 160000],
+    [25000001, 0],
+  ])("%d -> %d", (income, deduction) => expect(incomeTaxBasicDeduction(income)).toBe(deduction));
+});
+
+describe("residentTaxBasicDeduction", () => {
+  test.each([
+    [0, 430000],
+    [24000000, 430000],
+    [24000001, 290000],
+    [24500001, 150000],
+    [25000001, 0],
+  ])("%d -> %d", (income, deduction) => expect(residentTaxBasicDeduction(income)).toBe(deduction));
 });
 
 describe("toJpNumber", () => {
