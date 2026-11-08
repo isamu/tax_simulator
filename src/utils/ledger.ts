@@ -44,9 +44,22 @@ const takeHomeSection = (r: TaxSimulation): LedgerSection => ({
   rows: [
     { label: "標準報酬月額", valueYen: r.standardMonthlyFeeYen },
     { label: "手取り（月額）", valueYen: r.netIncomeMonthlyYen, note: "12等分" },
-    { label: "会社負担の社会保険料", valueYen: r.companyInsuranceYen },
   ],
   total: { label: "手取り（年額）", valueYen: r.netIncomeYearlyYen },
+});
+
+const employerSection = (r: TaxSimulation): LedgerSection => ({
+  title: "会社負担（年額）",
+  rows: [
+    { label: "健康保険", valueYen: r.employer.healthInsuranceYen, note: "本人と同額" },
+    { label: "子ども・子育て支援金", valueYen: r.employer.childSupportYen, note: "本人と同額" },
+    { label: "介護保険", valueYen: r.employer.careInsuranceYen, note: "本人と同額" },
+    { label: "厚生年金", valueYen: r.employer.pensionYen, note: "本人と同額" },
+    { label: "雇用保険", valueYen: r.employer.unemploymentYen, note: "0.85%" },
+    { label: "子ども・子育て拠出金", valueYen: r.employer.childContributionYen, note: "会社のみ" },
+    { label: "労災保険", valueYen: r.employer.workersCompYen, note: "会社のみ" },
+  ],
+  total: { label: "合計", valueYen: r.employer.totalYen },
 });
 
 export const ledgerSections = (r: TaxSimulation): LedgerSection[] => [
@@ -54,4 +67,5 @@ export const ledgerSections = (r: TaxSimulation): LedgerSection[] => [
   taxSection(r),
   deductionSection(r),
   takeHomeSection(r),
+  employerSection(r),
 ];

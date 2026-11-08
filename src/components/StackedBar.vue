@@ -23,7 +23,7 @@ const segments = computed(() => stackSegments(props.items));
         :title="`${segment.label} ${formatYen(segment.valueYen)}円（${formatPercent(segment.share)}）`"
       />
     </div>
-    <ul class="mt-3 grid gap-1 text-sm sm:grid-cols-3">
+    <ul class="mt-3 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
       <li v-for="item in items" :key="item.key" class="flex items-baseline gap-2">
         <span :class="[colors[item.key], 'inline-block size-2.5 shrink-0 translate-y-[1px]']" />
         <span>{{ item.label }}</span>

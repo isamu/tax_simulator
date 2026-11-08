@@ -18,7 +18,7 @@ import {
 } from "../utils/deductions";
 import { incomeFromHash } from "../utils/hash";
 import { ledgerSections } from "../utils/ledger";
-import { formatYen } from "../utils/format";
+import { formatPercent, formatYen } from "../utils/format";
 
 const DEFAULT_INCOME_GROSS_YEN = 4000000;
 const INCOME_STEP_YEN = 1000000;
@@ -80,13 +80,17 @@ const SHARE_COLORS: Record<string, string> = {
   net: "bg-series-1",
   insurance: "bg-series-2",
   tax: "bg-series-3",
+  employer: "bg-series-4",
 };
 
-const shareItems = computed(() => [
+const laborCostItems = computed(() => [
   { key: "net", label: "手取り", valueYen: result.value.netIncomeYearlyYen },
-  { key: "insurance", label: "社会保険料", valueYen: result.value.insuranceSumYen },
+  { key: "insurance", label: "あなたの社会保険料", valueYen: result.value.insuranceSumYen },
   { key: "tax", label: "税金", valueYen: result.value.taxSumYen },
+  { key: "employer", label: "会社負担の社会保険料", valueYen: result.value.companyInsuranceYen },
 ]);
+
+const takeHomeShare = computed(() => result.value.netIncomeYearlyYen / result.value.totalLaborCostYen);
 
 const sections = computed(() => ledgerSections(result.value));
 
@@ -219,8 +223,19 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         <p class="mt-1 text-sm text-ink-muted">
           月あたり {{ formatYen(result.netIncomeMonthlyYen) }}円 ／ 年収 {{ formatYen(Number(incomeInput)) }}円
         </p>
-        <div class="mt-5">
-          <StackedBar :items="shareItems" :colors="SHARE_COLORS" />
+      </div>
+
+      <div class="border-t border-rule-strong pt-3">
+        <p class="text-xs font-bold tracking-[0.2em] text-ink-muted">会社が払っている総額（総人件費）</p>
+        <p class="mt-1 text-2xl font-bold tabular-nums">
+          {{ formatYen(result.totalLaborCostYen) }}<span class="ml-1 text-base font-normal">円</span>
+        </p>
+        <p class="mt-1 text-sm leading-relaxed">
+          <span>年収とは別に、会社は社会保険料を年 {{ formatYen(result.companyInsuranceYen) }}円 払っています。</span
+          ><span>総人件費のうち、あなたの手元に残るのは {{ formatPercent(takeHomeShare) }} です。</span>
+        </p>
+        <div class="mt-4">
+          <StackedBar :items="laborCostItems" :colors="SHARE_COLORS" />
         </div>
       </div>
 
@@ -234,9 +249,8 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
         />
       </div>
 
-      <p class="border-l-2 border-rule-strong pl-3 text-sm leading-relaxed">
-        健康保険・子ども・子育て支援金・介護保険・厚生年金は、あなたと同じ額を会社も負担しています。雇用保険の会社負担は料率が異なります。あなたと会社をあわせると、社会保険料は年
-        {{ formatYen(result.insuranceTotalWithCompanyYen) }}円です。
+      <p class="border-l-2 border-rule-strong pl-3 text-xs leading-relaxed text-ink-muted">
+        健康保険・子ども・子育て支援金・介護保険・厚生年金は、あなたと同じ額を会社も負担しています。子ども・子育て拠出金と労災保険は会社だけが払う保険料です。労災保険の料率は業種で異なり、ここでは「その他の各種事業」の0.3%で計算しています。
       </p>
 
       <div>

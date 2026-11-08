@@ -34,6 +34,10 @@ const PENSION_FEE_FLOOR_YEN = 88000;
 const PENSION_FEE_CAP_YEN = 650000;
 const EMPLOYEE_UNEMPLOYMENT_RATE = 0.005;
 const EMPLOYER_UNEMPLOYMENT_RATE = 0.0085;
+// Employer-only: charged on the pension standard monthly fee.
+const CHILD_CONTRIBUTION_RATE = 0.0036;
+// Employer-only; the rate depends on the industry. This is "other businesses" (その他の各種事業).
+const WORKERS_COMP_RATE = 0.003;
 const RECONSTRUCTION_TAX_RATE = 0.021;
 const LOCAL_TAX_RATE = 0.1;
 const TAXABLE_INCOME_UNIT_YEN = 1000;
@@ -103,6 +107,7 @@ export const DEFAULT_HOUSEHOLD: Household = {
 
 export type SocialInsurance = {
   standardMonthlyFeeYen: number;
+  pensionStandardFeeYen: number;
   healthInsuranceMonthlyYen: number;
   healthInsuranceYearlyYen: number;
   childSupportMonthlyYen: number;
@@ -133,8 +138,10 @@ export type TaxSimulation = SocialInsurance &
     netIncomeYearlyYen: number;
     netIncomeMonthlyYen: number;
     insuranceSumYen: number;
+    employer: EmployerCosts;
     companyInsuranceYen: number;
     insuranceTotalWithCompanyYen: number;
+    totalLaborCostYen: number;
     taxSumYen: number;
     budgetsYen: number[];
   };
@@ -153,6 +160,7 @@ export const socialInsurance = (incomeGrossYen: number, household: Household): S
   const unemploymentMonthlyYen = Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYEE_UNEMPLOYMENT_RATE);
   return {
     standardMonthlyFeeYen,
+    pensionStandardFeeYen: pensionFeeYen,
     healthInsuranceMonthlyYen,
     healthInsuranceYearlyYen: healthInsuranceMonthlyYen * MONTHS_PER_YEAR,
     childSupportMonthlyYen,
@@ -175,9 +183,36 @@ const sharedInsuranceYen = (insurance: SocialInsurance): number =>
 const yearlyInsuranceYen = (insurance: SocialInsurance): number =>
   sharedInsuranceYen(insurance) + insurance.unemploymentYearlyYen;
 
-const employerInsuranceYen = (incomeGrossYen: number, insurance: SocialInsurance): number =>
-  sharedInsuranceYen(insurance) +
-  Math.round((incomeGrossYen / MONTHS_PER_YEAR) * EMPLOYER_UNEMPLOYMENT_RATE) * MONTHS_PER_YEAR;
+export type EmployerCosts = {
+  healthInsuranceYen: number;
+  childSupportYen: number;
+  careInsuranceYen: number;
+  pensionYen: number;
+  unemploymentYen: number;
+  childContributionYen: number;
+  workersCompYen: number;
+  totalYen: number;
+};
+
+const yearlyOf = (monthlyYen: number): number => Math.round(monthlyYen) * MONTHS_PER_YEAR;
+
+// Yearly amounts; health, child support, care and pension match the employee's share.
+export const employerCosts = (incomeGrossYen: number, insurance: SocialInsurance): EmployerCosts => {
+  const monthlyWageYen = incomeGrossYen / MONTHS_PER_YEAR;
+  const unemploymentYen = yearlyOf(monthlyWageYen * EMPLOYER_UNEMPLOYMENT_RATE);
+  const childContributionYen = yearlyOf(insurance.pensionStandardFeeYen * CHILD_CONTRIBUTION_RATE);
+  const workersCompYen = yearlyOf(monthlyWageYen * WORKERS_COMP_RATE);
+  return {
+    healthInsuranceYen: insurance.healthInsuranceYearlyYen,
+    childSupportYen: insurance.childSupportYearlyYen,
+    careInsuranceYen: insurance.careInsuranceYearlyYen,
+    pensionYen: insurance.pensionYearlyYen,
+    unemploymentYen,
+    childContributionYen,
+    workersCompYen,
+    totalYen: sharedInsuranceYen(insurance) + unemploymentYen + childContributionYen + workersCompYen,
+  };
+};
 
 const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, personalDeductionsYen: number): number => {
   const incomeYen = Math.max(salaryIncomeYen - insuranceYen - personalDeductionsYen, 0);
@@ -219,7 +254,7 @@ export const simulateTax = (incomeGrossYen: number, household: Household = DEFAU
   const insurance = socialInsurance(incomeGrossYen, household);
   const tax = taxes(incomeGrossYen, insurance, household);
   const insuranceSumYen = yearlyInsuranceYen(insurance);
-  const companyInsuranceYen = employerInsuranceYen(incomeGrossYen, insurance);
+  const employer = employerCosts(incomeGrossYen, insurance);
   const taxSumYen = tax.incomeTaxYen + tax.reconstructionTaxYen + tax.localTaxYen;
   const netIncomeYearlyYen = incomeGrossYen - insuranceSumYen - taxSumYen;
   return {
@@ -228,8 +263,10 @@ export const simulateTax = (incomeGrossYen: number, household: Household = DEFAU
     netIncomeYearlyYen,
     netIncomeMonthlyYen: Math.round(netIncomeYearlyYen / MONTHS_PER_YEAR),
     insuranceSumYen,
-    companyInsuranceYen,
-    insuranceTotalWithCompanyYen: insuranceSumYen + companyInsuranceYen,
+    employer,
+    companyInsuranceYen: employer.totalYen,
+    insuranceTotalWithCompanyYen: insuranceSumYen + employer.totalYen,
+    totalLaborCostYen: incomeGrossYen + employer.totalYen,
     taxSumYen,
     budgetsYen: budgetBreakdown(tax.incomeTaxYen),
   };
