@@ -22,6 +22,13 @@ import {
 } from "./deductions";
 import { nationalInsurance } from "./nationalInsurance";
 import { furusatoLimitYen } from "./furusato";
+import {
+  type HousingLoan,
+  NO_TAX_CREDIT,
+  type TaxCredit,
+  housingLoanCreditYen,
+  splitHousingLoanCredit,
+} from "./housingLoan";
 
 const MONTHS_PER_YEAR = 12;
 // Rates are the employer + employee total; the employee pays half.
@@ -98,6 +105,7 @@ export type Household = {
   selfDisability: SelfDisability;
   familyDisabilities: FamilyDisabilities;
   singleStatus: SingleStatus;
+  housingLoan: HousingLoan | null;
 };
 
 export const DEFAULT_HOUSEHOLD: Household = {
@@ -108,6 +116,7 @@ export const DEFAULT_HOUSEHOLD: Household = {
   selfDisability: "none",
   familyDisabilities: NO_FAMILY_DISABILITIES,
   singleStatus: "none",
+  housingLoan: null,
 };
 
 export type SocialInsurance = {
@@ -133,8 +142,12 @@ export type Taxes = {
   disabilityDeduction: PersonalDeduction;
   singleStatusDeduction: PersonalDeduction;
   taxableIncomeYen: number;
+  // Full credit from the loan balance; `housingLoanCredit` is the part that income and resident tax absorbed.
+  housingLoanCreditYen: number;
+  housingLoanCredit: TaxCredit;
   incomeTaxYen: number;
   reconstructionTaxYen: number;
+  localTaxBeforeCreditYen: number;
   localTaxYen: number;
 };
 
@@ -144,6 +157,7 @@ export type TaxSimulation = SocialInsurance &
     netIncomeMonthlyYen: number;
     insuranceSumYen: number;
     isNationalInsurance: boolean;
+    hasHousingLoan: boolean;
     employer: EmployerCosts;
     companyInsuranceYen: number;
     insuranceTotalWithCompanyYen: number;
@@ -286,6 +300,19 @@ const taxableIncome = (salaryIncomeYen: number, insuranceYen: number, personalDe
   return Math.floor(incomeYen / TAXABLE_INCOME_UNIT_YEN) * TAXABLE_INCOME_UNIT_YEN;
 };
 
+type TaxBeforeCredits = { taxableIncomeYen: number; incomeTaxYen: number; localTaxYen: number };
+
+const housingLoanCredit = (
+  household: Household,
+  salaryIncomeYen: number,
+  beforeCredits: TaxBeforeCredits,
+): { creditYen: number; split: TaxCredit } => {
+  if (!household.housingLoan) return { creditYen: 0, split: NO_TAX_CREDIT };
+  const creditYen = housingLoanCreditYen(household.housingLoan, salaryIncomeYen);
+  const { incomeTaxYen, taxableIncomeYen, localTaxYen } = beforeCredits;
+  return { creditYen, split: splitHousingLoanCredit(creditYen, incomeTaxYen, taxableIncomeYen, localTaxYen) };
+};
+
 export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, household: Household): Taxes => {
   const salaryDeductionYen = salaryIncomeDeduction(incomeGrossYen);
   const salaryIncomeYen = incomeGrossYen - salaryDeductionYen;
@@ -297,9 +324,15 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, househ
   const singleStatus = singleStatusDeduction(household.singleStatus, salaryIncomeYen);
   const family = [dependents, disability, singleStatus].reduce(addDeductions, spouse);
   const taxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, basicDeductionYen + family.incomeTaxYen);
-  const incomeTaxYen = Math.round(incomeTax(taxableIncomeYen));
   const residentDeductionsYen = residentTaxBasicDeduction(salaryIncomeYen) + family.residentTaxYen;
   const localTaxableIncomeYen = taxableIncome(salaryIncomeYen, insuranceYen, residentDeductionsYen);
+  const beforeCredits: TaxBeforeCredits = {
+    taxableIncomeYen,
+    incomeTaxYen: Math.round(incomeTax(taxableIncomeYen)),
+    localTaxYen: Math.round(localTaxableIncomeYen * LOCAL_TAX_RATE),
+  };
+  const loan = housingLoanCredit(household, salaryIncomeYen, beforeCredits);
+  const incomeTaxYen = beforeCredits.incomeTaxYen - loan.split.incomeTaxYen;
   return {
     salaryDeductionYen,
     basicDeductionYen,
@@ -308,9 +341,13 @@ export const taxes = (incomeGrossYen: number, insurance: SocialInsurance, househ
     disabilityDeduction: disability,
     singleStatusDeduction: singleStatus,
     taxableIncomeYen,
+    housingLoanCreditYen: loan.creditYen,
+    housingLoanCredit: loan.split,
     incomeTaxYen,
+    // The reconstruction surtax is charged on income tax after tax credits.
     reconstructionTaxYen: Math.round(incomeTaxYen * RECONSTRUCTION_TAX_RATE),
-    localTaxYen: Math.round(localTaxableIncomeYen * LOCAL_TAX_RATE),
+    localTaxBeforeCreditYen: beforeCredits.localTaxYen,
+    localTaxYen: beforeCredits.localTaxYen - loan.split.residentTaxYen,
   };
 };
 
@@ -331,12 +368,14 @@ export const simulateTax = (incomeGrossYen: number, household: Household = DEFAU
     netIncomeMonthlyYen: Math.round(netIncomeYearlyYen / MONTHS_PER_YEAR),
     insuranceSumYen,
     isNationalInsurance: household.nationalInsurance,
+    hasHousingLoan: household.housingLoan !== null,
     employer,
     companyInsuranceYen: employer.totalYen,
     insuranceTotalWithCompanyYen: insuranceSumYen + employer.totalYen,
     totalLaborCostYen: incomeGrossYen + employer.totalYen,
     taxSumYen,
-    furusatoLimitYen: furusatoLimitYen(tax.taxableIncomeYen, tax.localTaxYen),
+    // The special-deduction cap is 20% of the income levy before the housing loan credit.
+    furusatoLimitYen: furusatoLimitYen(tax.taxableIncomeYen, tax.localTaxBeforeCreditYen),
     budgetsYen: budgetBreakdown(tax.incomeTaxYen),
   };
 };

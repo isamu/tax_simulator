@@ -26,6 +26,7 @@ const randomState = (random: () => number): ShareState => {
     selfDisability: SELF[Math.floor(random() * SELF.length)],
     familyDisabilities: { regular: small(), special: small(), cohabitingSpecial: small() },
     singleStatus: SINGLE[Math.floor(random() * SINGLE.length)],
+    housingLoan: null,
   };
   return { incomeGrossYen: Math.floor(random() * 50_000_000), household };
 };

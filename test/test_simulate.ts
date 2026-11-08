@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { DEFAULT_HOUSEHOLD, type Household, simulateTax } from "../src/utils/simulate";
+import { DEFAULT_HOUSING_LOAN, type HousingLoan } from "../src/utils/housingLoan";
 
 // Expected values are worked out by hand from the published tables, step by step.
 describe("simulateTax worked examples", () => {
@@ -168,6 +169,24 @@ describe("simulateTax worked examples", () => {
     expect(r.employer.childContributionYen).toBe(0);
   });
 
+  test("4,000,000 yen with a 30,000,000 yen housing loan on a new energy-saving home (2026)", () => {
+    const housingLoan: HousingLoan = { ...DEFAULT_HOUSING_LOAN, balanceYen: 30_000_000 };
+    const r = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, housingLoan });
+    // 30,000,000 x 0.7% = 210,000, capped at 140,000
+    expect(r.housingLoanCreditYen).toBe(140_000);
+    // income tax before the credit is 56,000, so all of it goes
+    expect(r.housingLoanCredit).toEqual({ incomeTaxYen: 56_000, residentTaxYen: 56_000 });
+    expect(r.incomeTaxYen).toBe(0);
+    expect(r.reconstructionTaxYen).toBe(0);
+    // 84,000 is left; the resident cap is 1,120,000 x 5% = 56,000; 173,000 - 56,000
+    expect(r.localTaxYen).toBe(117_000);
+    expect(r.localTaxBeforeCreditYen).toBe(173_000);
+    expect(r.netIncomeYearlyYen).toBe(4_000_000 - 599_976 - 117_000);
+    // the furusato limit is based on the levy before the credit
+    expect(r.furusatoLimitYen).toBe(42_756);
+    expect(r.budgetsYen.every((yen) => yen === 0)).toBe(true);
+  });
+
   test("salary below the minimum deduction leaves no salary income", () => {
     const r = simulateTax(500_000);
     expect(r.salaryDeductionYen).toBe(500_000);
@@ -194,6 +213,7 @@ describe("simulateTax properties", () => {
         ...DEFAULT_HOUSEHOLD,
         paysCareInsurance: random() < 0.5,
         nationalInsurance: random() < 0.5,
+        housingLoan: random() < 0.5 ? { ...DEFAULT_HOUSING_LOAN, balanceYen: Math.floor(random() * 60_000_000) } : null,
       });
       expect(r.insuranceSumYen).toBe(
         r.healthInsuranceYearlyYen +
@@ -203,6 +223,9 @@ describe("simulateTax properties", () => {
           r.unemploymentYearlyYen,
       );
       expect(r.taxSumYen).toBe(r.incomeTaxYen + r.reconstructionTaxYen + r.localTaxYen);
+      expect(r.incomeTaxYen).toBeGreaterThanOrEqual(0);
+      expect(r.localTaxYen).toBe(r.localTaxBeforeCreditYen - r.housingLoanCredit.residentTaxYen);
+      expect(r.localTaxYen).toBeGreaterThanOrEqual(0);
       expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen + r.companyInsuranceYen);
       expect(r.totalLaborCostYen).toBe(income + r.companyInsuranceYen);
       expect(r.employer.pensionYen).toBe(r.isNationalInsurance ? 0 : r.pensionYearlyYen);

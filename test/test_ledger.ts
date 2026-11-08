@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { ledgerSections } from "../src/utils/ledger";
 import { DEFAULT_HOUSEHOLD, simulateTax } from "../src/utils/simulate";
+import { DEFAULT_HOUSING_LOAN } from "../src/utils/housingLoan";
 
 const result = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, paysCareInsurance: true });
 const sections = ledgerSections(result);
@@ -49,4 +50,13 @@ test("employees keep employment insurance on both sides", () => {
   const employeeRows = (title: string) => section(title)?.rows.map((row) => row.label);
   expect(employeeRows("社会保険料（年額）")).toContain("雇用保険");
   expect(employeeRows("会社負担（年額）")).toContain("雇用保険");
+});
+
+test("the housing loan section appears only with a loan, and its rows add up to the credit", () => {
+  expect(sections.map((s) => s.title)).not.toContain("住宅ローン控除");
+  const housingLoan = { ...DEFAULT_HOUSING_LOAN, balanceYen: 30_000_000 };
+  const withLoan = simulateTax(4_000_000, { ...DEFAULT_HOUSEHOLD, housingLoan });
+  const loanSection = ledgerSections(withLoan).find((s) => s.title === "住宅ローン控除");
+  expect(loanSection?.rows.reduce((total, row) => total + row.valueYen, 0)).toBe(withLoan.housingLoanCreditYen);
+  expect(loanSection?.total?.valueYen).toBe(140_000);
 });
