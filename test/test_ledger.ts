@@ -7,7 +7,18 @@ const sections = ledgerSections(result);
 const section = (title: string) => sections.find((s) => s.title === title);
 
 test("sections appear in reading order", () =>
-  expect(sections.map((s) => s.title)).toEqual(["社会保険料（年額）", "税金（年額）", "所得税の控除", "手取り"]));
+  expect(sections.map((s) => s.title)).toEqual([
+    "社会保険料（年額）",
+    "税金（年額）",
+    "所得税の控除",
+    "手取り",
+    "会社負担（年額）",
+  ]));
+
+test("employer rows add up to the employer total", () => {
+  const employer = section("会社負担（年額）");
+  expect(employer?.rows.reduce((total, row) => total + row.valueYen, 0)).toBe(result.companyInsuranceYen);
+});
 
 test("insurance rows add up to the insurance total", () => {
   const insurance = section("社会保険料（年額）");

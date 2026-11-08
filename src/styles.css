@@ -13,6 +13,7 @@
   --series-1: #2a78d6;
   --series-2: #eb6834;
   --series-3: #1baf7a;
+  --series-4: #eda100;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -28,6 +29,7 @@
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
+    --series-4: #c98500;
   }
 }
 
@@ -42,5 +44,6 @@
   --color-series-1: var(--series-1);
   --color-series-2: var(--series-2);
   --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
   --font-sans: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
 }

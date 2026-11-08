@@ -27,8 +27,22 @@ describe("simulateTax worked examples", () => {
     // (2,760,000 - 599,976 - 430,000) floored = 1,730,000 x 10%
     expect(r.localTaxYen).toBe(173_000);
     expect(r.netIncomeYearlyYen).toBe(4_000_000 - 599_976 - 56_000 - 1_176 - 173_000);
-    // employer: same health, child support and pension, plus 333,333 x 0.85% = 2,833 per month
-    expect(r.companyInsuranceYen).toBe((16_830 + 391 + 31_110 + 2_833) * 12);
+    // employer: same health, child support and pension as the employee
+    expect(r.employer).toEqual({
+      healthInsuranceYen: 201_960,
+      childSupportYen: 4_692,
+      careInsuranceYen: 0,
+      pensionYen: 373_320,
+      // 333,333 x 0.85% = 2,833 per month
+      unemploymentYen: 33_996,
+      // 340,000 x 0.36% = 1,224 per month
+      childContributionYen: 14_688,
+      // 333,333 x 0.3% = 1,000 per month
+      workersCompYen: 12_000,
+      totalYen: 640_656,
+    });
+    expect(r.companyInsuranceYen).toBe(640_656);
+    expect(r.totalLaborCostYen).toBe(4_640_656);
   });
 
   test("1,000,000 yen uses the minimum salary deduction", () => {
@@ -77,7 +91,8 @@ describe("simulateTax worked examples", () => {
     expect(r.incomeTaxYen).toBe(54_300);
     // (2,760,000 - 633,024 - 430,000) floored = 1,696,000 x 10%
     expect(r.localTaxYen).toBe(169_600);
-    expect(r.companyInsuranceYen).toBe((16_830 + 391 + 2_754 + 31_110 + 2_833) * 12);
+    expect(r.employer.careInsuranceYen).toBe(2_754 * 12);
+    expect(r.companyInsuranceYen).toBe(640_656 + 2_754 * 12);
   });
 
   test("care insurance is zero when not aged 40-64", () => {
@@ -164,6 +179,8 @@ describe("simulateTax properties", () => {
       );
       expect(r.taxSumYen).toBe(r.incomeTaxYen + r.reconstructionTaxYen + r.localTaxYen);
       expect(r.insuranceTotalWithCompanyYen).toBe(r.insuranceSumYen + r.companyInsuranceYen);
+      expect(r.totalLaborCostYen).toBe(income + r.companyInsuranceYen);
+      expect(r.employer.pensionYen).toBe(r.pensionYearlyYen);
       expect(r.netIncomeYearlyYen).toBe(income - r.insuranceSumYen - r.taxSumYen);
       expect(r.taxableIncomeYen).toBeGreaterThanOrEqual(0);
       expect(r.salaryDeductionYen).toBeLessThanOrEqual(income);
