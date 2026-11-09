@@ -36,3 +36,5 @@ yarn deploy       # build → S3 に同期 → CloudFront のキャッシュ削�
 ```
 
 `yarn deploy` は `dist/` を S3 バケット `tax-simulator` に同期し（`dist/` にないファイルは消します）、CloudFront（`E1KSS7SLDOD1TN`）のキャッシュを削除します。AWS の profile `to-kyo.to` が必要です。CloudFront の取り出し元は S3 のウェブサイト用エンドポイントなので、`/furusato/` のようなディレクトリでも `index.html` が返ります。
+
+ファビコンと共有用画像（`public/` の `favicon.ico`・`apple-touch-icon.png`・`icon-512.png`・`og-image.png`・`furusato/og-image.png`）は `scripts/make-images.sh` で作り直せます。ImageMagick とヒラギノ角ゴシック（macOS）が必要です。新しいページを足したら `public/sitemap.xml` にも追加してください。
