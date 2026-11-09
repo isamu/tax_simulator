@@ -61,11 +61,21 @@ describe("computeFurusatoLimit branches", () => {
     expect(r.rate).toBe(0.05);
   });
 
-  test("the bracket is judged after subtracting the personal deduction gap", () => {
-    // total 3,610,000; resident taxable 3,610,000 - 1,200,000 - 430,000 = 1,980,000; judged on 1,930,000
-    const r = computeFurusatoLimit({ ...BASE_INPUT, salesYen: 9_260_000 });
-    expect(r.residentTaxableYen).toBe(1_980_000);
+  test("the bracket is judged on income tax taxable income, not resident taxable income", () => {
+    const r = computeFurusatoLimit({ ...BASE_INPUT, salesYen: 9_390_000 });
+    // total 3,740,000; income tax taxable 3,740,000 - 1,200,000 - 1,040,000 = 1,500,000 -> 5%
+    expect(r.taxableYen).toBe(1_500_000);
+    // resident taxable 2,110,000 minus the 50,000 gap would have judged 10%
+    expect(r.residentTaxableYen).toBe(2_110_000);
     expect(r.rate).toBe(0.05);
+    // (2,110,000 x 10% - 2,500) floored to 100 = 208,500; 208,500 x 20% / (90% - 5% x 1.021) + 2,000
+    expect(r.limitYen).toBe(51_119);
+  });
+
+  test("the bracket boundary sits at 1,950,000 yen of income tax taxable income", () => {
+    // total = taxable + 1,200,000 + 1,040,000; sales = total + 5,650,000
+    expect(computeFurusatoLimit({ ...BASE_INPUT, salesYen: 1_949_000 + 2_240_000 + 5_650_000 }).rate).toBe(0.05);
+    expect(computeFurusatoLimit({ ...BASE_INPUT, salesYen: 1_950_000 + 2_240_000 + 5_650_000 }).rate).toBe(0.1);
   });
 
   test("no adjustment above 25,000,000 yen", () => {
