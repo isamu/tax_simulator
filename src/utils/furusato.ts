@@ -99,7 +99,7 @@ export const computeFurusatoLimit = (input: FurusatoInput): FurusatoResult => {
   const adjustYen = Math.floor(adjustmentDeduction(residentTaxableYen, gapYen, totalIncomeYen));
   const shotokuwariYen =
     input.shotokuwariOverrideYen ?? floorTo(residentTaxableYen * RESIDENT_BASE_RATIO - adjustYen, SHOTOKUWARI_UNIT_YEN);
-  const rate = rateFor(input.taxableOverrideYen ?? residentTaxableYen - gapYen);
+  const rate = rateFor(taxableYen);
   const coefficient = coefficientFor(rate);
   const limitYen = limitFrom(shotokuwariYen, coefficient);
   return {
