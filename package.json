@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "deploy": "yarn build && aws --profile to-kyo.to s3 sync dist/ s3://tax-simulator/ --delete && aws --profile to-kyo.to cloudfront create-invalidation --distribution-id E1KSS7SLDOD1TN --paths '/*'"
   },
   "dependencies": {
     "vue": "^3"

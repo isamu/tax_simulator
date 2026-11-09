@@ -32,6 +32,7 @@ yarn test         # vitest
 yarn lint         # ESLint
 yarn typecheck    # vue-tsc
 yarn format       # Prettier
+yarn deploy       # build → S3 に同期 → CloudFront のキャッシュ削除
 ```
 
-`yarn build` で出力される `dist/` を公開先に配置します。
+`yarn deploy` は `dist/` を S3 バケット `tax-simulator` に同期し（`dist/` にないファイルは消します）、CloudFront（`E1KSS7SLDOD1TN`）のキャッシュを削除します。AWS の profile `to-kyo.to` が必要です。CloudFront の取り出し元は S3 のウェブサイト用エンドポイントなので、`/furusato/` のようなディレクトリでも `index.html` が返ります。
