@@ -1,4 +1,11 @@
-import { incomeTaxBasicDeduction, residentTaxBasicDeduction } from "./tax";
+import { incomeTax, incomeTaxBasicDeduction, residentTaxBasicDeduction } from "./tax";
+import {
+  type DeductionLine,
+  type DeductionTotals,
+  type FurusatoDeductionInput,
+  deductionTotals,
+  furusatoDeductionLines,
+} from "./furusatoDeductions";
 
 type TaxBracket = { upToYen: number; rate: number; label: string };
 
@@ -29,9 +36,9 @@ export type FurusatoInput = {
   expensesYen: number;
   blueDeductionYen: number;
   otherIncomeYen: number;
-  socialInsuranceYen: number;
-  otherDeductionYen: number;
-  personalGapYen: number;
+  deductions: FurusatoDeductionInput;
+  // The income tax part of the housing loan credit (or any other tax credit).
+  housingLoanCreditYen: number;
   // `null` means "calculate it".
   taxableOverrideYen: number | null;
   shotokuwariOverrideYen: number | null;
@@ -39,6 +46,9 @@ export type FurusatoInput = {
 
 export type FurusatoResult = {
   totalIncomeYen: number;
+  deductionLines: DeductionLine[];
+  personalGapYen: number;
+  incomeTaxBeforeCreditsYen: number;
   incomeTaxBasicYen: number;
   residentBasicYen: number;
   taxableYen: number;
@@ -48,6 +58,8 @@ export type FurusatoResult = {
   rate: number;
   coefficient: number;
   limitYen: number;
+  // Above 2,000 yen when the housing loan credit leaves too little income tax for the donation to reduce.
+  selfBurdenAtLimitYen: number;
 };
 
 const lookup = <T extends { upToYen: number }>(table: readonly T[], value: number): T | undefined =>
@@ -74,45 +86,71 @@ const limitFrom = (shotokuwariYen: number, coefficient: number): number =>
 export const furusatoLimitYen = (taxableIncomeYen: number, shotokuwariYen: number): number =>
   limitFrom(shotokuwariYen, coefficientFor(rateFor(taxableIncomeYen)));
 
-type IncomeAndDeductions = Pick<FurusatoResult, "totalIncomeYen" | "incomeTaxBasicYen" | "residentBasicYen"> & {
-  commonDeductionsYen: number;
+const totalIncome = (input: FurusatoInput): number => {
+  const profitYen = Math.max(0, input.salesYen - input.expensesYen);
+  return Math.max(0, profitYen - input.blueDeductionYen) + input.otherIncomeYen;
 };
 
+// The income tax part of a donation is (donation - 2,000) x rate; what the remaining income tax cannot absorb is lost.
+const selfBurdenAt = (limitYen: number, rate: number, remainingIncomeTaxYen: number): number => {
+  const incomeTaxPartYen = Math.max(limitYen - SELF_BURDEN_YEN, 0) * rate;
+  const lostYen = Math.max(incomeTaxPartYen - remainingIncomeTaxYen, 0) * RECONSTRUCTION_MULTIPLIER;
+  return SELF_BURDEN_YEN + Math.ceil(lostYen);
+};
+
+const nonNegative = (yen: number): number => (Number.isFinite(yen) ? Math.max(yen, 0) : 0);
+
+type IncomeAndDeductions = Pick<
+  FurusatoResult,
+  "totalIncomeYen" | "deductionLines" | "personalGapYen" | "incomeTaxBasicYen" | "residentBasicYen"
+> & { deductions: DeductionTotals };
+
 const incomeAndDeductions = (input: FurusatoInput): IncomeAndDeductions => {
-  const profitYen = Math.max(0, input.salesYen - input.expensesYen);
-  const totalIncomeYen = Math.max(0, profitYen - input.blueDeductionYen) + input.otherIncomeYen;
+  const totalIncomeYen = totalIncome(input);
+  const deductionLines = furusatoDeductionLines(input.deductions, totalIncomeYen);
+  const deductions = deductionTotals(deductionLines);
   return {
     totalIncomeYen,
-    commonDeductionsYen: input.socialInsuranceYen + input.otherDeductionYen,
+    deductionLines,
+    deductions,
+    personalGapYen: deductions.personalGapYen,
     incomeTaxBasicYen: incomeTaxBasicDeduction(totalIncomeYen),
     residentBasicYen: residentTaxBasicDeduction(totalIncomeYen),
   };
 };
 
-export const computeFurusatoLimit = (input: FurusatoInput): FurusatoResult => {
-  const { totalIncomeYen, commonDeductionsYen, incomeTaxBasicYen, residentBasicYen } = incomeAndDeductions(input);
-  const taxableYen =
-    input.taxableOverrideYen ??
-    floorTo(totalIncomeYen - commonDeductionsYen - incomeTaxBasicYen - input.personalGapYen, TAXABLE_UNIT_YEN);
-  const residentTaxableYen = floorTo(totalIncomeYen - commonDeductionsYen - residentBasicYen, TAXABLE_UNIT_YEN);
-  const gapYen = BASIC_GAP_FOR_ADJUST_YEN + input.personalGapYen;
+type ResidentLevy = Pick<FurusatoResult, "residentTaxableYen" | "adjustYen" | "shotokuwariYen">;
+
+const residentLevy = (base: IncomeAndDeductions, overrideYen: number | null): ResidentLevy => {
+  const { totalIncomeYen, deductions, residentBasicYen } = base;
+  const residentTaxableYen = floorTo(totalIncomeYen - deductions.residentTaxYen - residentBasicYen, TAXABLE_UNIT_YEN);
+  const gapYen = BASIC_GAP_FOR_ADJUST_YEN + deductions.personalGapYen;
   const adjustYen = Math.floor(adjustmentDeduction(residentTaxableYen, gapYen, totalIncomeYen));
   const shotokuwariYen =
-    input.shotokuwariOverrideYen ?? floorTo(residentTaxableYen * RESIDENT_BASE_RATIO - adjustYen, SHOTOKUWARI_UNIT_YEN);
+    overrideYen ?? floorTo(residentTaxableYen * RESIDENT_BASE_RATIO - adjustYen, SHOTOKUWARI_UNIT_YEN);
+  return { residentTaxableYen, adjustYen, shotokuwariYen };
+};
+
+export const computeFurusatoLimit = (input: FurusatoInput): FurusatoResult => {
+  const { deductions, ...base } = incomeAndDeductions(input);
+  const taxableYen =
+    input.taxableOverrideYen ??
+    floorTo(base.totalIncomeYen - deductions.incomeTaxYen - base.incomeTaxBasicYen, TAXABLE_UNIT_YEN);
+  const levy = residentLevy({ deductions, ...base }, input.shotokuwariOverrideYen);
   const rate = rateFor(taxableYen);
   const coefficient = coefficientFor(rate);
-  const limitYen = limitFrom(shotokuwariYen, coefficient);
+  const limitYen = limitFrom(levy.shotokuwariYen, coefficient);
+  const incomeTaxBeforeCreditsYen = Math.floor(incomeTax(taxableYen));
+  const remainingIncomeTaxYen = Math.max(incomeTaxBeforeCreditsYen - nonNegative(input.housingLoanCreditYen), 0);
   return {
-    totalIncomeYen,
-    incomeTaxBasicYen,
-    residentBasicYen,
+    ...base,
+    ...levy,
+    incomeTaxBeforeCreditsYen,
     taxableYen,
-    residentTaxableYen,
-    adjustYen,
-    shotokuwariYen,
     rate,
     coefficient,
     limitYen,
+    selfBurdenAtLimitYen: selfBurdenAt(limitYen, rate, remainingIncomeTaxYen),
   };
 };
 
