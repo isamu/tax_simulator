@@ -17,7 +17,7 @@ https://tax-answer.net/#4000000
 
 ## ふるさと納税の上限計算（個人事業主向け）
 
-`/furusato/` で、売上・必要経費・青色申告特別控除などから、ふるさと納税の控除上限額の目安を計算します。計算は [`src/utils/furusato.ts`](src/utils/furusato.ts)。
+`/furusato/` で、売上・必要経費・青色申告特別控除と、確定申告書の「所得から差し引かれる金額」の各欄から、ふるさと納税の控除上限額の目安を計算します。人的控除（配偶者・扶養など）は区分を選ぶと所得税・住民税の両方の額を自動で求めます。住宅ローン控除で自己負担が2,000円を超える場合はその目安も出します。計算は [`src/utils/furusato.ts`](src/utils/furusato.ts) と [`src/utils/furusatoDeductions.ts`](src/utils/furusatoDeductions.ts)。
 
 ## 開発
 
