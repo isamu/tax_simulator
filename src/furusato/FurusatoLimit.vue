@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId } from "vue";
+import { computed, ref, useId, watch } from "vue";
 import NumberField from "../components/NumberField.vue";
 import FormSection from "../components/FormSection.vue";
 import RadioGroup from "../components/RadioGroup.vue";
@@ -8,42 +8,26 @@ import InfoTip from "../components/InfoTip.vue";
 import LedgerTable from "../components/LedgerTable.vue";
 import { FURUSATO_HELP } from "./furusatoHelp";
 import { FURUSATO_TAX_BRACKETS, coefficientFor, computeFurusatoLimit, optionalAmount } from "../utils/furusato";
-import { type Dependents, type FamilyDisabilities, type SelfDisability, type SingleStatus } from "../utils/deductions";
+import { savedInputs } from "../utils/storage";
+import {
+  type AmountField,
+  type BlueChoice,
+  type FurusatoForm,
+  decodeFurusatoForm,
+  defaultFurusatoForm,
+  encodeFurusatoForm,
+} from "./furusatoForm";
 import { formatYen } from "../utils/format";
 
-// v-model on a number input yields "" while the field is empty.
-type AmountField = number | "";
-type BlueChoice = "650000" | "550000" | "100000" | "0" | "custom";
+const saved = savedInputs("tax-simulator:furusato", () => localStorage);
+const form = ref<FurusatoForm>(decodeFurusatoForm(saved.read()));
 
-const sales = ref<AmountField>(12000000);
-const expenses = ref<AmountField>(5000000);
-const blueChoice = ref<BlueChoice>("650000");
-const blueCustom = ref<AmountField>(0);
-const otherIncome = ref<AmountField>(0);
-const social = ref<AmountField>(900000);
-const smallBusinessMutual = ref<AmountField>(0);
-const lifeInsurance = ref<AmountField>(0);
-const earthquakeInsurance = ref<AmountField>(0);
-const medical = ref<AmountField>(0);
-const hasSpouse = ref(false);
-const spouseSalary = ref<AmountField>(0);
-const spouseIsElderly = ref(false);
-const dependents = ref<Record<keyof Dependents, AmountField>>({
-  general: 0,
-  specific: 0,
-  elderly: 0,
-  cohabitingParents: 0,
-});
-const selfDisability = ref<SelfDisability>("none");
-const familyDisabilities = ref<Record<keyof FamilyDisabilities, AmountField>>({
-  regular: 0,
-  special: 0,
-  cohabitingSpecial: 0,
-});
-const singleStatus = ref<SingleStatus>("none");
-const housingLoanCredit = ref<AmountField>(0);
-const taxableOverride = ref<AmountField>("");
-const shotokuwariOverride = ref<AmountField>("");
+watch(form, (current) => saved.write(encodeFurusatoForm(current)), { deep: true });
+
+const resetInputs = (): void => {
+  saved.clear();
+  form.value = defaultFurusatoForm();
+};
 
 const BLUE_OPTIONS: { value: BlueChoice; label: string }[] = [
   { value: "650000", label: "65万円" },
@@ -56,41 +40,41 @@ const BLUE_OPTIONS: { value: BlueChoice; label: string }[] = [
 const amountOrZero = (value: AmountField): number => value || 0;
 
 const blueDeductionYen = computed(() =>
-  blueChoice.value === "custom" ? amountOrZero(blueCustom.value) : Number(blueChoice.value),
+  form.value.blueChoice === "custom" ? amountOrZero(form.value.blueCustom) : Number(form.value.blueChoice),
 );
 
 const result = computed(() =>
   computeFurusatoLimit({
-    salesYen: amountOrZero(sales.value),
-    expensesYen: amountOrZero(expenses.value),
+    salesYen: amountOrZero(form.value.sales),
+    expensesYen: amountOrZero(form.value.expenses),
     blueDeductionYen: blueDeductionYen.value,
-    otherIncomeYen: amountOrZero(otherIncome.value),
+    otherIncomeYen: amountOrZero(form.value.otherIncome),
     deductions: {
-      socialInsuranceYen: amountOrZero(social.value),
-      smallBusinessMutualYen: amountOrZero(smallBusinessMutual.value),
-      lifeInsuranceYen: amountOrZero(lifeInsurance.value),
-      earthquakeInsuranceYen: amountOrZero(earthquakeInsurance.value),
-      medicalYen: amountOrZero(medical.value),
-      spouse: hasSpouse.value
-        ? { salaryYen: amountOrZero(spouseSalary.value), isElderly: spouseIsElderly.value }
+      socialInsuranceYen: amountOrZero(form.value.social),
+      smallBusinessMutualYen: amountOrZero(form.value.smallBusinessMutual),
+      lifeInsuranceYen: amountOrZero(form.value.lifeInsurance),
+      earthquakeInsuranceYen: amountOrZero(form.value.earthquakeInsurance),
+      medicalYen: amountOrZero(form.value.medical),
+      spouse: form.value.hasSpouse
+        ? { salaryYen: amountOrZero(form.value.spouseSalary), isElderly: form.value.spouseIsElderly }
         : null,
       dependents: {
-        general: amountOrZero(dependents.value.general),
-        specific: amountOrZero(dependents.value.specific),
-        elderly: amountOrZero(dependents.value.elderly),
-        cohabitingParents: amountOrZero(dependents.value.cohabitingParents),
+        general: amountOrZero(form.value.dependents.general),
+        specific: amountOrZero(form.value.dependents.specific),
+        elderly: amountOrZero(form.value.dependents.elderly),
+        cohabitingParents: amountOrZero(form.value.dependents.cohabitingParents),
       },
-      selfDisability: selfDisability.value,
+      selfDisability: form.value.selfDisability,
       familyDisabilities: {
-        regular: amountOrZero(familyDisabilities.value.regular),
-        special: amountOrZero(familyDisabilities.value.special),
-        cohabitingSpecial: amountOrZero(familyDisabilities.value.cohabitingSpecial),
+        regular: amountOrZero(form.value.familyDisabilities.regular),
+        special: amountOrZero(form.value.familyDisabilities.special),
+        cohabitingSpecial: amountOrZero(form.value.familyDisabilities.cohabitingSpecial),
       },
-      singleStatus: singleStatus.value,
+      singleStatus: form.value.singleStatus,
     },
-    housingLoanCreditYen: amountOrZero(housingLoanCredit.value),
-    taxableOverrideYen: optionalAmount(taxableOverride.value),
-    shotokuwariOverrideYen: optionalAmount(shotokuwariOverride.value),
+    housingLoanCreditYen: amountOrZero(form.value.housingLoanCredit),
+    taxableOverrideYen: optionalAmount(form.value.taxableOverride),
+    shotokuwariOverrideYen: optionalAmount(form.value.shotokuwariOverride),
   }),
 );
 
@@ -132,18 +116,30 @@ const resultRows = computed(() => [
     <main class="mt-8 grid gap-10 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
       <form class="space-y-6" @submit.prevent>
         <FormSection title="収入・所得">
-          <NumberField v-model="sales" label="売上（収入金額）" unit="円" name="sales" :tip="FURUSATO_HELP.sales" />
-          <NumberField v-model="expenses" label="必要経費" unit="円" name="expenses" :tip="FURUSATO_HELP.expenses" />
+          <NumberField
+            v-model="form.sales"
+            label="売上（収入金額）"
+            unit="円"
+            name="sales"
+            :tip="FURUSATO_HELP.sales"
+          />
+          <NumberField
+            v-model="form.expenses"
+            label="必要経費"
+            unit="円"
+            name="expenses"
+            :tip="FURUSATO_HELP.expenses"
+          />
           <RadioGroup
-            v-model="blueChoice"
+            v-model="form.blueChoice"
             label="青色申告特別控除"
             name="blue"
             :options="BLUE_OPTIONS"
             :tip="FURUSATO_HELP.blue"
           />
           <NumberField
-            v-if="blueChoice === 'custom'"
-            v-model="blueCustom"
+            v-if="form.blueChoice === 'custom'"
+            v-model="form.blueCustom"
             label="青色申告特別控除額"
             unit="円"
             name="blue_custom"
@@ -151,7 +147,7 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.blueCustom"
           />
           <NumberField
-            v-model="otherIncome"
+            v-model="form.otherIncome"
             label="その他の所得"
             hint="給与所得・雑所得など"
             unit="円"
@@ -162,7 +158,7 @@ const resultRows = computed(() => [
 
         <FormSection title="所得から差し引かれる金額" :tip="FURUSATO_HELP.deductions">
           <NumberField
-            v-model="social"
+            v-model="form.social"
             label="社会保険料控除"
             unit="円"
             name="social"
@@ -170,7 +166,7 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.socialInsurance"
           />
           <NumberField
-            v-model="smallBusinessMutual"
+            v-model="form.smallBusinessMutual"
             label="小規模企業共済等掛金控除"
             hint="iDeCo・小規模企業共済"
             unit="円"
@@ -179,7 +175,7 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.smallBusinessMutual"
           />
           <NumberField
-            v-model="lifeInsurance"
+            v-model="form.lifeInsurance"
             label="生命保険料控除"
             unit="円"
             name="life_insurance"
@@ -187,7 +183,7 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.lifeInsurance"
           />
           <NumberField
-            v-model="earthquakeInsurance"
+            v-model="form.earthquakeInsurance"
             label="地震保険料控除"
             unit="円"
             name="earthquake_insurance"
@@ -195,16 +191,16 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.earthquakeInsurance"
           />
           <FamilyFields
-            v-model:has-spouse="hasSpouse"
-            v-model:spouse-salary="spouseSalary"
-            v-model:spouse-is-elderly="spouseIsElderly"
-            v-model:dependents="dependents"
-            v-model:self-disability="selfDisability"
-            v-model:family-disabilities="familyDisabilities"
-            v-model:single-status="singleStatus"
+            v-model:has-spouse="form.hasSpouse"
+            v-model:spouse-salary="form.spouseSalary"
+            v-model:spouse-is-elderly="form.spouseIsElderly"
+            v-model:dependents="form.dependents"
+            v-model:self-disability="form.selfDisability"
+            v-model:family-disabilities="form.familyDisabilities"
+            v-model:single-status="form.singleStatus"
           />
           <NumberField
-            v-model="medical"
+            v-model="form.medical"
             label="医療費控除"
             unit="円"
             name="medical"
@@ -222,7 +218,7 @@ const resultRows = computed(() => [
 
         <FormSection title="税額控除">
           <NumberField
-            v-model="housingLoanCredit"
+            v-model="form.housingLoanCredit"
             label="住宅ローン控除"
             hint="所得税から引いた額"
             unit="円"
@@ -234,7 +230,7 @@ const resultRows = computed(() => [
 
         <FormSection title="直接入力（任意）">
           <NumberField
-            v-model="taxableOverride"
+            v-model="form.taxableOverride"
             label="所得税の課税所得"
             unit="円"
             name="taxable_override"
@@ -242,7 +238,7 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.taxableOverride"
           />
           <NumberField
-            v-model="shotokuwariOverride"
+            v-model="form.shotokuwariOverride"
             label="住民税の所得割"
             unit="円"
             name="shotokuwari_override"
@@ -250,6 +246,14 @@ const resultRows = computed(() => [
             :tip="FURUSATO_HELP.shotokuwariOverride"
           />
         </FormSection>
+
+        <button
+          type="button"
+          class="border border-rule px-3 py-1 text-xs text-ink-muted hover:border-ink hover:text-ink focus:border-accent focus:outline-none"
+          @click="resetInputs"
+        >
+          入力をリセット
+        </button>
       </form>
 
       <section class="space-y-10" aria-live="polite">
