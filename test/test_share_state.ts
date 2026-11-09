@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { type ShareState, decodeShareState, encodeShareState } from "../src/utils/shareState";
+import { type ShareState, decodeShareState, encodeShareState, initialHash } from "../src/utils/shareState";
 import { DEFAULT_HOUSEHOLD, type Household } from "../src/utils/simulate";
 import type { SelfDisability, SingleStatus } from "../src/utils/deductions";
 import {
@@ -154,5 +154,18 @@ describe("housing loan in the share state", () => {
     ],
   ])("%s -> %o", (hash, housingLoan) =>
     expect(decodeShareState(hash, DEFAULT_INCOME).household.housingLoan).toEqual(housingLoan),
+  );
+});
+
+describe("initialHash", () => {
+  test.each([
+    ["#income=5000000", "income=3000000", "#income=5000000"],
+    ["#4000000", "income=3000000", "#4000000"],
+    ["", "income=3000000", "income=3000000"],
+    ["#", "income=3000000", "income=3000000"],
+    ["", null, ""],
+    ["#", null, ""],
+  ])("location %j, saved %j -> %j", (locationHash, savedHash, expected) =>
+    expect(initialHash(locationHash, savedHash)).toBe(expected),
   );
 });

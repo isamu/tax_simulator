@@ -131,3 +131,7 @@ export const decodeShareState = (hash: string, defaultIncomeGrossYen: number): S
     household: householdFrom(params),
   };
 };
+
+// A link with values in the hash (a shared URL) wins over what this browser saved last time.
+export const initialHash = (locationHash: string, savedHash: string | null): string =>
+  locationHash.replace(/^#/, "") !== "" ? locationHash : (savedHash ?? "");

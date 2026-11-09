@@ -10,7 +10,8 @@ import LedgerTable from "./LedgerTable.vue";
 import BudgetTable from "./BudgetTable.vue";
 import { BUDGET_ITEMS, type Household, simulateTax } from "../utils/simulate";
 import { type Dependents, type FamilyDisabilities, type SelfDisability, type SingleStatus } from "../utils/deductions";
-import { decodeShareState, encodeShareState } from "../utils/shareState";
+import { decodeShareState, encodeShareState, initialHash } from "../utils/shareState";
+import { savedInputs } from "../utils/storage";
 import {
   DEFAULT_HOUSING_LOAN,
   type HomeKind,
@@ -27,7 +28,8 @@ const INCOME_STEP_YEN = 1000000;
 // v-model on a number input yields "" while the field is empty.
 type NumberInput = number | "";
 
-const initial = decodeShareState(location.hash, DEFAULT_INCOME_GROSS_YEN);
+const saved = savedInputs("tax-simulator:inputs", () => localStorage);
+const initial = decodeShareState(initialHash(location.hash, saved.read()), DEFAULT_INCOME_GROSS_YEN);
 
 const incomeInput = ref<NumberInput>(initial.incomeGrossYen);
 const paysCareInsurance = ref(initial.household.paysCareInsurance);
@@ -118,6 +120,7 @@ watch(
   ([income, currentHousehold]) => {
     const hash = encodeShareState({ incomeGrossYen: Number(income), household: currentHousehold });
     history.replaceState(null, "", `#${hash}`);
+    saved.write(hash);
   },
   { immediate: true },
 );
@@ -150,6 +153,11 @@ const tipIds = {
   singleStatus: useId(),
   housingLoan: useId(),
   childRearing: useId(),
+};
+
+const resetInputs = (): void => {
+  saved.clear();
+  location.replace(location.pathname);
 };
 
 const selectClass = "w-[9.25rem] border border-rule bg-paper-raised px-2 py-1 focus:border-accent focus:outline-none";
@@ -330,6 +338,14 @@ const checkboxClass = "size-4 accent-[var(--accent)]";
           </p>
         </template>
       </FormSection>
+
+      <button
+        type="button"
+        class="border border-rule px-3 py-1 text-xs text-ink-muted hover:border-ink hover:text-ink focus:border-accent focus:outline-none"
+        @click="resetInputs"
+      >
+        入力をリセット
+      </button>
     </form>
 
     <section class="space-y-10" aria-live="polite">
