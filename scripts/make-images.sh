@@ -20,8 +20,8 @@ icon() {
 share_image() {
   magick -size 1200x630 "xc:$PAPER" \
     -fill "$ACCENT" -draw "rectangle 0,0 1199,15" \
-    -font "$BOLD" -pointsize 76 -fill "$INK" -gravity northwest -annotate +90+190 "$2" \
-    -font "$REGULAR" -pointsize 36 -fill "$MUTED" -annotate +90+330 "$3" \
+    -font "$BOLD" -pointsize 76 -fill "$INK" -gravity northwest -interline-spacing 12 -annotate +90+"$4" "$2" \
+    -font "$REGULAR" -pointsize 36 -fill "$MUTED" -annotate +90+"$(($4 + 40 + 100 * $5))" "$3" \
     -font "$BOLD" -pointsize 32 -fill "$ACCENT" -gravity southwest -annotate +90+70 "tax-answer.net" \
     "$1"
 }
@@ -29,5 +29,7 @@ share_image() {
 icon 512 icon-512.png 85
 icon 180 apple-touch-icon.png 0
 magick icon-512.png -define icon:auto-resize=48,32,16 favicon.ico
-share_image og-image.png "税金シミュレーター" "年収から手取り・税金・社会保険料を計算（令和8年分）"
-share_image furusato/og-image.png "ふるさと納税 上限計算" "個人事業主向け・確定申告書の順に入力（令和8年分）"
+# share_image <file> <title> <subtitle> <title top px> <title line count>
+share_image og-image.png "税金シミュレーター" "年収から手取り・税金・社会保険料を計算（令和8年分）" 190 1
+share_image furusato/og-image.png "個人事業主の
+ふるさと納税 上限計算" "確定申告書の順に入力（令和8年分）" 130 2

@@ -109,8 +109,8 @@ const resultRows = computed(() => [
 <template>
   <div class="mx-auto max-w-6xl px-4 py-8 sm:px-6">
     <header class="flex flex-wrap items-baseline justify-between gap-2 border-b-2 border-rule-strong pb-3">
-      <h1 class="text-2xl font-bold tracking-wide">ふるさと納税 上限計算</h1>
-      <p class="text-sm text-ink-muted">個人事業主・令和8年分（2026年）</p>
+      <h1 class="text-2xl font-bold tracking-wide">ふるさと納税 上限計算（個人事業主）</h1>
+      <p class="text-sm text-ink-muted">令和8年分（2026年）</p>
     </header>
 
     <main class="mt-8 grid gap-10 md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
